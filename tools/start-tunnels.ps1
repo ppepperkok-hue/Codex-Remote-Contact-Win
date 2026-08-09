@@ -1,5 +1,6 @@
-# Start one Cloudflare quick tunnel per local web service (hub + webuis).
-# Safe to run at every login: already-running tunnels are skipped.
+# Start the Cloudflare tunnel(s) for the hub and webuis.
+# Prefers a named tunnel configured in ~/.cloudflared/config.yml (stable
+# hostnames); falls back to per-port quick tunnels (random trycloudflare URLs).
 $ErrorActionPreference = "Continue"
 
 $projectDir = Split-Path $PSScriptRoot -Parent
@@ -13,6 +14,23 @@ if (-not (Test-Path $cloudflared)) {
 if (-not (Test-Path $cloudflared)) {
   Write-Output "cloudflared not found"
   exit 1
+}
+
+$namedConfig = Join-Path $env:USERPROFILE ".cloudflared\config.yml"
+$namedLog = Join-Path $runtime "cloudflared-named.log"
+
+if (Test-Path $namedConfig) {
+  $running = Get-CimInstance Win32_Process -Filter "Name='cloudflared.exe'" -ErrorAction SilentlyContinue |
+    Where-Object { $_.CommandLine -match [regex]::Escape($namedLog) }
+  if (-not $running) {
+    Start-Process -FilePath $cloudflared -ArgumentList @(
+      "tunnel", "--no-autoupdate", "--logfile", $namedLog, "run"
+    ) -WindowStyle Hidden
+    Write-Output "started named tunnel"
+  } else {
+    Write-Output "named tunnel already running"
+  }
+  exit 0
 }
 
 $targets = @(

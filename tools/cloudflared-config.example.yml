@@ -1,0 +1,22 @@
+# 放在 ~/.cloudflared/config.yml（Windows: C:\Users\<你>\.cloudflared\config.yml）
+# 先执行：
+#   cloudflared tunnel login
+#   cloudflared tunnel create crc-home
+#   cloudflared tunnel route dns crc-home crc.example.com
+#   cloudflared tunnel route dns crc-home napcat1.example.com
+#   cloudflared tunnel route dns crc-home napcat2.example.com
+#   cloudflared tunnel route dns crc-home astr.example.com
+# 然后把 tunnel ID 和 credentials-file 换成你自己的。
+tunnel: 00000000-0000-0000-0000-000000000000
+credentials-file: C:\Users\<你>\.cloudflared\00000000-0000-0000-0000-000000000000.json
+
+ingress:
+  - hostname: crc.example.com
+    service: http://127.0.0.1:3789
+  - hostname: napcat1.example.com
+    service: http://127.0.0.1:6099
+  - hostname: napcat2.example.com
+    service: http://127.0.0.1:6100
+  - hostname: astr.example.com
+    service: http://127.0.0.1:6185
+  - service: http_status:404

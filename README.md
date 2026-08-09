@@ -157,6 +157,26 @@ cloudflared tunnel --url http://127.0.0.1:3789 --protocol http2 --edge-ip-versio
 `/api/services` 会把每个服务的 WebUI 链接自动映射到各自的公网地址；从局域网
 访问时仍使用局域网地址。NapCat / AstrBot 各自的登录凭据在公网上同样需要。
 
+### 固定域名（推荐）
+
+临时隧道的随机地址每次重启都会变化。有 Cloudflare 账号 + 域名的话，用命名隧道
+可以拿到永久不变的地址：
+
+```powershell
+cloudflared tunnel login          # 浏览器授权一次
+cloudflared tunnel create crc-home
+cloudflared tunnel route dns crc-home crc.example.com
+cloudflared tunnel route dns crc-home napcat1.example.com
+cloudflared tunnel route dns crc-home napcat2.example.com
+cloudflared tunnel route dns crc-home astr.example.com
+```
+
+然后把 `tools/cloudflared-config.example.yml` 改成自己的隧道 ID / 域名，
+保存到 `~/.cloudflared/config.yml`，再在 `data/tunnels.json` 里填上固定地址
+（参考 `data/tunnels.example.json`）。`start-tunnels.ps1` 检测到命名隧道配置
+后会自动使用它，Hub 的 `/api/remote-url` 与面板链接也会显示固定地址；
+公网地址变化时 Hub 会通过 QQ 私聊通知主人。
+
 ### 手机 App（PWA，可安装到主屏幕）
 
 手机浏览器打开 `http://<电脑IP>:3789/app/`，输入访问密码后：

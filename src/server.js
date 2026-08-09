@@ -220,9 +220,19 @@ async function readTunnelUrl(logName) {
 
 async function getRemoteUrl() {
   const webuis = {};
+  try {
+    const fixed = JSON.parse(await readFile(join(projectDir, "data", "tunnels.json"), "utf8"));
+    for (const [port, url] of Object.entries(fixed.webuis || {})) {
+      webuis[port] = url;
+    }
+  } catch {
+    // no fixed tunnels config; fall back to quick tunnel logs
+  }
   for (const [port, logName] of Object.entries(TUNNEL_LOG_NAMES)) {
-    const url = await readTunnelUrl(logName);
-    if (url) webuis[port] = url;
+    if (!webuis[port]) {
+      const url = await readTunnelUrl(logName);
+      if (url) webuis[port] = url;
+    }
   }
   const url = webuis["3789"] || null;
   return { ok: Boolean(url), url, webuis };
@@ -381,8 +391,19 @@ async function handleApi(req, res) {
     const status = await getServicesStatus();
     const host = String(req.headers.host || "");
     const hostname = host.split(":")[0] || "127.0.0.1";
-    const viaTunnel = host.includes("trycloudflare.com");
-    const tunnels = viaTunnel ? await getRemoteUrl() : null;
+    const tunnels = await getRemoteUrl();
+    const tunnelHosts = new Set(
+      Object.values(tunnels.webuis || {})
+        .map((url) => {
+          try {
+            return new URL(url).hostname;
+          } catch {
+            return "";
+          }
+        })
+        .filter(Boolean)
+    );
+    const viaTunnel = tunnelHosts.has(hostname) || host.includes("trycloudflare.com");
     for (const svc of status.services || []) {
       if (!svc.webui) continue;
       if (viaTunnel && tunnels?.webuis) {
