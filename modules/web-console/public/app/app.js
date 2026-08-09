@@ -2,7 +2,6 @@ const $ = (id) => document.getElementById(id);
 const servicesEl = $("services");
 const statusChip = $("status-chip");
 const hostLabel = $("host-label");
-const macList = $("mac-list");
 const qqStatus = $("qq-status");
 const remoteRow = $("remote-row");
 const remoteLink = $("remote-link");
@@ -75,10 +74,9 @@ function serviceCard(svc) {
 
 async function refresh() {
   try {
-    const [servicesData, stateData, wakeData, remoteData] = await Promise.all([
+    const [servicesData, stateData, remoteData] = await Promise.all([
       api("/api/services"),
       api("/api/state"),
-      api("/api/wake/info").catch(() => null),
       api("/api/remote-url").catch(() => null)
     ]);
     const anyUp = servicesData.services.some((s) => s.running);
@@ -87,13 +85,6 @@ async function refresh() {
     servicesEl.innerHTML = servicesData.services.map(serviceCard).join("");
     if (stateData.qq) {
       qqStatus.textContent = stateData.channels?.qq ? "已开启" : "已关闭";
-    }
-    if (wakeData) {
-      macList.textContent = wakeData.macs?.length
-        ? wakeData.macs.join("  /  ")
-        : "未配置（data/wake.json）";
-    } else {
-      macList.textContent = "—";
     }
     if (remoteData?.url) {
       remoteRow.style.display = "flex";
@@ -125,20 +116,6 @@ servicesEl.addEventListener("click", async (event) => {
   } finally {
     btn.disabled = false;
     refresh();
-  }
-});
-
-$("wake-btn").addEventListener("click", async (event) => {
-  const btn = event.currentTarget;
-  btn.disabled = true;
-  try {
-    const result = await api("/api/wake", { method: "POST", body: "{}" });
-    if (result.ok) toast("唤醒包已发送：" + result.sent.join(" / "));
-    else toast(result.error || "唤醒包发送失败");
-  } catch (error) {
-    toast(error.message === "unauthorized" ? "" : "唤醒失败：" + error.message);
-  } finally {
-    btn.disabled = false;
   }
 });
 

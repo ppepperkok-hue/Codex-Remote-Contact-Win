@@ -170,9 +170,13 @@ textarea {
 }
 
 .titlebar-title {
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
+  flex: 1;
+  min-width: 0;
+  text-align: center;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: "Segoe UI", "Microsoft YaHei", "PingFang SC", system-ui, sans-serif;
   color: var(--text-secondary);
   font-size: 13px;
   font-weight: 500;
