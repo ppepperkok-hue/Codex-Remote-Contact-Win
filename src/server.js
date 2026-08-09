@@ -82,10 +82,6 @@ function sendJson(res, code, body) {
   res.end(JSON.stringify(body));
 }
 
-function isLoopbackAddress(addr) {
-  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
-}
-
 function requestHasValidToken(req) {
   if (!ACCESS_TOKEN) return true;
   const header = req.headers["x-access-token"] || "";
@@ -461,12 +457,6 @@ async function handleApi(req, res) {
       await saveStateSettings();
     }
     return sendJson(res, 200, buildPublicState());
-  }
-  if (req.method === "POST" && (path === "/api/imessage/trusted-handles" || path === "/api/imessage/reply-handle")) {
-    return sendJson(res, 200, {
-      ok: false,
-      reason: "iMessage is macOS-only; this Windows port uses QQ private messages as the trusted control channel"
-    });
   }
   if (req.method === "POST" && path === "/api/qq/memory/clear") {
     const body = await readBody(req);

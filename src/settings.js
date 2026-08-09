@@ -26,9 +26,7 @@ export const defaultSettings = {
   },
   ai: {
     model: "auto",
-    reasoningEffort: "medium",
-    imessageModel: null,
-    imessageReasoningEffort: "medium"
+    reasoningEffort: "medium"
   },
   remoteExecution: {
     model: "auto",
