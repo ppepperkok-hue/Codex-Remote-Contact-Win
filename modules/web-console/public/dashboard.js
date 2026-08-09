@@ -154,7 +154,7 @@ function renderServices(services) {
             停止
           </button>`
         : "";
-      const webBtn = svc.webui
+      const webBtn = !svc.self && svc.webui
         ? `<a class="btn ghost small" href="${escapeHtml(svc.webui)}" target="_blank" rel="noopener">
             ${icons.external} WebUI
           </a>`
