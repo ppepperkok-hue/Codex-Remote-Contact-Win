@@ -37,7 +37,10 @@ const els = {
   checkedAt: document.querySelector("#checkedAt"),
   hubDot: document.querySelector("#hubDot"),
   hubMini: document.querySelector("#hubMini"),
-  refreshBtn: document.querySelector("#refreshBtn")
+  refreshBtn: document.querySelector("#refreshBtn"),
+  remoteBanner: document.querySelector("#remoteBanner"),
+  remoteLink: document.querySelector("#remoteLink"),
+  remoteCopy: document.querySelector("#remoteCopy")
 };
 
 let serviceCache = null;
@@ -258,6 +261,16 @@ function renderHealth(maintenance) {
     .join("");
 }
 
+function renderRemote(remote) {
+  if (remote?.url) {
+    els.remoteBanner.hidden = false;
+    els.remoteLink.href = remote.url;
+    els.remoteLink.textContent = remote.url.replace(/^https?:\/\//, "");
+  } else {
+    els.remoteBanner.hidden = true;
+  }
+}
+
 function updateChrome(services) {
   const running = services.filter((s) => s.running).length;
   const total = services.length;
@@ -270,10 +283,11 @@ function updateChrome(services) {
 
 async function refresh() {
   try {
-    const [servicesRes, maintenanceRes, stateRes] = await Promise.all([
+    const [servicesRes, maintenanceRes, stateRes, remoteRes] = await Promise.all([
       api("/api/services"),
       api("/api/maintenance"),
-      api("/api/state")
+      api("/api/state"),
+      api("/api/remote-url").catch(() => null)
     ]);
     serviceCache = servicesRes;
     maintenanceCache = maintenanceRes;
@@ -281,6 +295,7 @@ async function refresh() {
     renderServices(servicesRes.services);
     renderEvents(stateRes.qq?.recentEvents || []);
     renderHealth(maintenanceRes);
+    renderRemote(remoteRes);
     updateChrome(servicesRes.services);
     els.checkedAt.textContent = `${formatTime(servicesRes.checkedAt)} 更新`;
   } catch (error) {
@@ -369,9 +384,34 @@ els.serviceGrid.addEventListener("click", (event) => {
   if (action === "stop") stopService(service);
 });
 
-els.refreshBtn.addEventListener("click", refresh);
+els.refreshBtn.addEventListener("click", async () => {
+  els.refreshBtn.disabled = true;
+  els.refreshBtn.classList.add("spinning");
+  try {
+    await refresh();
+  } finally {
+    els.refreshBtn.disabled = false;
+    els.refreshBtn.classList.remove("spinning");
+  }
+});
+
+els.remoteCopy.addEventListener("click", async () => {
+  const url = els.remoteLink.href;
+  if (!url) return;
+  try {
+    await navigator.clipboard.writeText(url);
+    const original = els.remoteCopy.textContent;
+    els.remoteCopy.textContent = "已复制";
+    setTimeout(() => {
+      els.remoteCopy.textContent = original;
+    }, 1500);
+  } catch {
+    alert("复制失败，请手动复制地址");
+  }
+});
 
 initTheme();
+els.serviceGrid.innerHTML = '<div class="panel-loading">正在读取服务状态…</div>';
 refresh();
 setInterval(() => {
   if (polling) refresh();

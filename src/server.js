@@ -186,6 +186,12 @@ async function buildMaintenanceStatus() {
     oneBot,
     oneBotWs: getOneBotConnectionStatus(),
     codex: state.maintenance.codex,
+    remoteExecution: {
+      enabled: state.remoteExecution.enabled,
+      model: state.remoteExecution.model,
+      reasoningEffort: state.remoteExecution.reasoningEffort,
+      sandbox: state.remoteExecution.sandbox
+    },
     memory: {
       qqGroups: Object.keys(state.qq.memory.entries || {}).length,
       qqRecentMessages: Object.values(state.qq.memory.recentMessages || {}).reduce((n, l) => n + l.length, 0),
