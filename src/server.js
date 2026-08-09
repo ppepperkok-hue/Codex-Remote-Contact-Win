@@ -201,16 +201,31 @@ async function buildMaintenanceStatus() {
   };
 }
 
-async function getRemoteUrl() {
-  const logPath = join(runtimeDir, "cloudflared.log");
+const TUNNEL_LOG_NAMES = {
+  3789: "cloudflared.log",
+  6099: "cloudflared-6099.log",
+  6100: "cloudflared-6100.log",
+  6185: "cloudflared-6185.log"
+};
+
+async function readTunnelUrl(logName) {
   try {
-    const raw = await readFile(logPath, "utf8");
+    const raw = await readFile(join(runtimeDir, logName), "utf8");
     const urls = [...raw.matchAll(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/g)].map((m) => m[0]);
-    const url = urls.length ? urls[urls.length - 1] : null;
-    return { ok: Boolean(url), url };
+    return urls.length ? urls[urls.length - 1] : null;
   } catch {
-    return { ok: false, url: null };
+    return null;
   }
+}
+
+async function getRemoteUrl() {
+  const webuis = {};
+  for (const [port, logName] of Object.entries(TUNNEL_LOG_NAMES)) {
+    const url = await readTunnelUrl(logName);
+    if (url) webuis[port] = url;
+  }
+  const url = webuis["3789"] || null;
+  return { ok: Boolean(url), url, webuis };
 }
 
 async function processOneBotPayload(payload) {
@@ -364,14 +379,25 @@ async function handleApi(req, res) {
   }
   if (req.method === "GET" && path === "/api/services") {
     const status = await getServicesStatus();
-    const hostname = String(req.headers.host || "").split(":")[0] || "127.0.0.1";
+    const host = String(req.headers.host || "");
+    const hostname = host.split(":")[0] || "127.0.0.1";
+    const viaTunnel = host.includes("trycloudflare.com");
+    const tunnels = viaTunnel ? await getRemoteUrl() : null;
     for (const svc of status.services || []) {
-      if (svc.webui) {
-        svc.webui = svc.webui.replace(
-          /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i,
-          `http://${hostname}$2`
-        );
+      if (!svc.webui) continue;
+      if (viaTunnel && tunnels?.webuis) {
+        const portMatch = svc.webui.match(/:(\d+)\/?$/);
+        const port = portMatch ? portMatch[1] : null;
+        const tunnelUrl = port ? tunnels.webuis[port] : null;
+        if (tunnelUrl) {
+          svc.webui = tunnelUrl;
+          continue;
+        }
       }
+      svc.webui = svc.webui.replace(
+        /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i,
+        `http://${hostname}$2`
+      );
     }
     return sendJson(res, 200, status);
   }

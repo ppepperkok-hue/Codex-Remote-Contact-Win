@@ -152,6 +152,11 @@ cloudflared tunnel --url http://127.0.0.1:3789 --protocol http2 --edge-ip-versio
 命名隧道固定域名。因为隧道是从本机转发的，Hub 对**所有来源**（包括本机）都要求
 访问密码，公网上没有密码一律 401。
 
+`tools/start-tunnels.ps1` 会在开机时统一拉起四条隧道（Hub 3789 + NapCat WebUI
+6099/6100 + AstrBot 6185），已在注册表自启动项里配置。从公网打开面板时，
+`/api/services` 会把每个服务的 WebUI 链接自动映射到各自的公网地址；从局域网
+访问时仍使用局域网地址。NapCat / AstrBot 各自的登录凭据在公网上同样需要。
+
 ### 手机 App（PWA，可安装到主屏幕）
 
 手机浏览器打开 `http://<电脑IP>:3789/app/`，输入访问密码后：
