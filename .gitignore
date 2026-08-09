@@ -11,6 +11,7 @@ data/apps-cache.json
 data/access-token.txt
 data/wake.json
 data/tunnels.json
+data/hub.env
 *.log
 .DS_Store
 Thumbs.db

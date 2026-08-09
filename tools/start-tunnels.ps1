@@ -7,10 +7,9 @@ $projectDir = Split-Path $PSScriptRoot -Parent
 $runtime = Join-Path $projectDir "runtime"
 New-Item -ItemType Directory -Force -Path $runtime | Out-Null
 
-$cloudflared = "C:\Program Files (x86)\cloudflared\cloudflared.exe"
-if (-not (Test-Path $cloudflared)) {
-  $cloudflared = "C:\Program Files\cloudflared\cloudflared.exe"
-}
+$cloudflared = (Get-Command cloudflared -ErrorAction SilentlyContinue).Source
+if (-not $cloudflared) { $cloudflared = "C:\Program Files (x86)\cloudflared\cloudflared.exe" }
+if (-not (Test-Path $cloudflared)) { $cloudflared = "C:\Program Files\cloudflared\cloudflared.exe" }
 if (-not (Test-Path $cloudflared)) {
   Write-Output "cloudflared not found"
   exit 1

@@ -58,15 +58,17 @@ npm start
 
 1. 复制 `data/settings.example.json` 为 `data/settings.json`，填入你的 QQ 号
    （`ownerUserIds`）和允许的群号（`allowedGroups`）。
-2. 在 NapCat 的 OneBot 配置里开启正向 WebSocket server（例如 3001/3002 端口）。
-3. 设置 `ONEBOT_WS_URL` 并启动：
+2. 复制 `data/hub.env.example` 为 `data/hub.env`，按本机填写
+   `ONEBOT_WS_URL`、`AUTO_START_SERVICES`、`CODEX_REMOTE_CONTACT_HOST` 等。
+3. 在 NapCat 的 OneBot 配置里开启正向 WebSocket server（例如 3001/3002 端口）。
+4. 启动：`npm start`（会自动读取 `data/hub.env`），或双击
+   `start-dashboard.bat`（隐藏启动 + 打开控制台）。
+5. 打开服务控制台：<http://127.0.0.1:3789>
 
-   ```bash
-   ONEBOT_WS_URL=ws://127.0.0.1:3001 npm start
-   ```
-
-   或双击 `start-dashboard.bat`（隐藏启动 + 打开控制台）。
-4. 打开服务控制台：<http://127.0.0.1:3789>
+> 本机配置全部放在 `data/` 下的独立文件里（均被 `.gitignore` 排除）：
+> `settings.json`（QQ 白名单）、`hub.env`（环境变量）、`services.json`
+> （服务路径/端口）、`wake.json`（WOL MAC）、`tunnels.json`（固定公网域名）、
+> `access-token.txt`（面板访问密码）。换机器时复制对应 `.example` 文件改名即可。
 
 可选：设置 `CODEX_REMOTE_CONTACT_ASSISTANT_PROFILE_PATH` 指向一个人格卡 md 文件
 （例如祥子人格卡），Hub 会把它写进 Codex 工作区的 AGENTS.md，让回复带上风格。
@@ -223,6 +225,9 @@ Wake-on-LAN，可以实现「手机远程开机 → 自动登录 → Hub 自动�
 ```
 
 ## 环境变量
+
+所有变量都可以通过系统环境变量设置，也可以写进 `data/hub.env`（启动引导
+`src/load-env.js` 会读取；系统环境变量优先）。
 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |

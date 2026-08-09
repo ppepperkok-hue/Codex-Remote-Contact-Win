@@ -2,21 +2,18 @@
 rem Codex Remote Contact - service dashboard launcher.
 rem Starts the hub hidden if it is not already listening on 3789,
 rem then opens the dashboard in the default browser.
+rem Machine specific values live in data/hub.env (see hub.env.example).
 setlocal
 set "HUB_DIR=%~dp0"
 set "HUB_LOG=%~dp0runtime\hub-console.log"
 if not exist "%HUB_DIR%runtime" mkdir "%HUB_DIR%runtime"
-set "CRC_TOKEN="
-if exist "%HUB_DIR%data\access-token.txt" set /p CRC_TOKEN=<"%HUB_DIR%data\access-token.txt"
 
 powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "$c = Get-NetTCPConnection -LocalPort 3789 -State Listen -ErrorAction SilentlyContinue; " ^
   "if (-not $c) { " ^
-  "  $env:ONEBOT_WS_URL = 'ws://127.0.0.1:3002'; " ^
-  "  $env:CODEX_REMOTE_CONTACT_HOST = '0.0.0.0'; " ^
-  "  $env:CODEX_REMOTE_CONTACT_ACCESS_TOKEN = '%CRC_TOKEN%'; " ^
-  "  $env:AUTO_START_SERVICES = 'napcat-2591507632,napcat-3690309769,astrbot'; " ^
-  "  Start-Process -FilePath 'C:\Program Files\nodejs\node.exe' -ArgumentList 'src/server.js' " ^
+  "  $node = (Get-Command node -ErrorAction SilentlyContinue).Source; " ^
+  "  if (-not $node) { $node = 'C:\Program Files\nodejs\node.exe' } " ^
+  "  Start-Process -FilePath $node -ArgumentList 'src/load-env.js' " ^
   "    -WorkingDirectory '%HUB_DIR%' -WindowStyle Hidden -RedirectStandardOutput '%HUB_LOG%' -RedirectStandardError '%HUB_LOG%.err' " ^
   "}"
 
