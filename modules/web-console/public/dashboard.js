@@ -227,10 +227,10 @@ function renderHealth(maintenance) {
     },
     {
       name: "QQ 登录",
-      ok: Boolean(maintenance?.oneBot?.ok),
+      ok: Boolean(maintenance?.oneBot?.online),
       detail: maintenance?.oneBot?.nickname
-        ? `${maintenance.oneBot.nickname}`
-        : maintenance?.oneBot?.lastError || "未登录",
+        ? `${maintenance.oneBot.nickname}${maintenance.oneBot.online ? "" : " · 已掉线"}`
+        : maintenance?.oneBot?.reason || maintenance?.oneBot?.lastError || "未登录",
       tone: "bad"
     },
     {

@@ -147,7 +147,18 @@ export async function checkOneBotHealth() {
   const login = await sendOneBotAction("get_login_info", {}, { timeoutMs: 5000 });
   if (!login.ok) return { ok: false, reason: login.error || login.reason || `HTTP ${login.status || "?"}` };
   const info = login.data?.data || login.data || {};
-  return { ok: true, userId: info.user_id, nickname: info.nickname };
+  const status = await sendOneBotAction("get_status", {}, { timeoutMs: 5000 });
+  const online = Boolean(status.ok && status.data?.data?.online === true);
+  if (!online) {
+    return {
+      ok: false,
+      online: false,
+      userId: info.user_id,
+      nickname: info.nickname,
+      reason: "QQ 账号已掉线或被踢下线"
+    };
+  }
+  return { ok: true, online: true, userId: info.user_id, nickname: info.nickname };
 }
 
 export async function sendGroupMessage(groupId, text) {
