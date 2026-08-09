@@ -132,6 +132,35 @@ Hub 默认只监听 `127.0.0.1`。要在同一局域网内的手机上打开控�
 > 安全提示：手机访问意味着控制台暴露在局域网内。访问密码只保护 Hub 本身；
 > NapCat / AstrBot 各自的 WebUI 凭据要单独保管，不要用默认密码。
 
+### 手机 App（PWA，可安装到主屏幕）
+
+手机浏览器打开 `http://<电脑IP>:3789/app/`，输入访问密码后：
+
+- **Android Chrome**：菜单 → 「安装应用」/「添加到主屏幕」，生成带图标的独立 App。
+- **iPhone Safari**：分享 → 「添加到主屏幕」。
+
+App 功能：
+
+- 服务总览：AstrBot / 各 NapCat / Hub 的运行状态，每 8 秒刷新；
+- 一键启动 / 停止服务，一键打开各服务 WebUI（自动使用当前访问的主机地址）；
+- 远程开机：发送 Wake-on-LAN 魔术包（配置在 `data/wake.json`，不入库），
+  并显示本机 MAC 方便用其它 WOL 工具；
+- 网页控制台入口与 QQ 通道状态。
+
+### 开机自动启动
+
+Hub 支持 `AUTO_START_SERVICES` 环境变量（逗号分隔的服务 id），启动后按顺序
+自动拉起尚未运行的服务（默认延迟约 6～8 秒一个）：
+
+```powershell
+$env:AUTO_START_SERVICES = "napcat-10001,napcat-10002,astrbot"
+npm start
+```
+
+`start-dashboard.bat` 与注册表自启动项已配置好当前机器的三个服务。配合
+Wake-on-LAN，可以实现「手机远程开机 → 自动登录 → Hub 自动拉起 NapCat + AstrBot
++ QQ 通道」的完整无人值守链路。
+
 ## QQ 指令（管理员私聊 / 群内 @）
 
 ```text
@@ -160,6 +189,7 @@ Hub 默认只监听 `127.0.0.1`。要在同一局域网内的手机上打开控�
 | `CODEX_REMOTE_CONTACT_ASSISTANT_PROFILE_PATH` | 空 | 写入工作区 AGENTS.md 的风格文件 |
 | `CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX` | `read-only` | 远程执行默认沙箱 |
 | `CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_IDLE_TTL_MS` | `900000` | 远程执行空闲超时 |
+| `AUTO_START_SERVICES` | 空 | 开机自动启动的服务 id（逗号分隔，如 `napcat-10001,astrbot`） |
 | `DASHSCOPE_API_KEY` | 空 | 视觉描述（截图分析）用的 DashScope/Qwen key |
 | `CODEX_SKY_PATH` | 自动探测 | `@oai/sky` 模块目录（Computer Use） |
 | `CODEX_VISION_PY` | 自动探测 | vision.py 路径 |

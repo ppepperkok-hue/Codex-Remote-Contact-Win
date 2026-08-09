@@ -1,0 +1,5 @@
+{
+  "macs": ["AA-BB-CC-DD-EE-FF"],
+  "broadcast": "255.255.255.255",
+  "port": 9
+}

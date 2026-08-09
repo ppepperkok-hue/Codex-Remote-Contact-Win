@@ -15,6 +15,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ^
   "  $env:ONEBOT_WS_URL = 'ws://127.0.0.1:3002'; " ^
   "  $env:CODEX_REMOTE_CONTACT_HOST = '0.0.0.0'; " ^
   "  $env:CODEX_REMOTE_CONTACT_ACCESS_TOKEN = '%CRC_TOKEN%'; " ^
+  "  $env:AUTO_START_SERVICES = 'napcat-2591507632,napcat-3690309769,astrbot'; " ^
   "  Start-Process -FilePath 'C:\Program Files\nodejs\node.exe' -ArgumentList 'src/server.js' " ^
   "    -WorkingDirectory '%HUB_DIR%' -WindowStyle Hidden -RedirectStandardOutput '%HUB_LOG%' -RedirectStandardError '%HUB_LOG%.err' " ^
   "}"

@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f1117" />
+  <link rel="manifest" href="/app/manifest.webmanifest" />
+  <link rel="apple-touch-icon" href="/app/icons/icon-192.png" />
+  <link rel="stylesheet" href="/app/app.css" />
+  <title>CRC Remote</title>
+</head>
+<body>
+  <div class="app">
+    <header class="top">
+      <div class="brand">
+        <div class="logo">CRC</div>
+        <div>
+          <h1>CRC Remote</h1>
+          <p id="host-label">连接中…</p>
+        </div>
+      </div>
+      <span class="chip" id="status-chip">…</span>
+    </header>
+
+    <div class="section-title">服务</div>
+    <div id="services"><div class="skeleton">正在读取服务状态…</div></div>
+
+    <div class="section-title">远程开机</div>
+    <div class="card">
+      <div class="row">
+        <div>
+          <div style="font-weight:600;font-size:14px">发送唤醒包</div>
+          <div class="muted" style="margin-top:3px">电脑休眠 / 睡眠时可用</div>
+        </div>
+        <button class="btn" id="wake-btn">唤醒</button>
+      </div>
+      <div class="divider"></div>
+      <div class="muted">本机 MAC：</div>
+      <div id="mac-list" class="mac" style="margin-top:4px">读取中…</div>
+      <div class="hint">完全关机后，唤醒包需要由同一 Wi-Fi 下的设备或路由器发送。手机在外网时，请用路由器自带的远程唤醒功能（或先配置好智能插座开机）。</div>
+    </div>
+
+    <div class="section-title">链接</div>
+    <div class="card">
+      <div class="row" style="margin-bottom:10px">
+        <span>网页控制台</span>
+        <a class="btn ghost small" href="/" target="_blank" rel="noopener">打开</a>
+      </div>
+      <div class="row">
+        <span>QQ 通道</span>
+        <span class="muted" id="qq-status">…</span>
+      </div>
+    </div>
+  </div>
+  <div class="toast" id="toast"></div>
+  <script src="/app/app.js"></script>
+</body>
+</html>

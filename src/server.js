@@ -27,6 +27,7 @@ import { listApps, openApp, searchApps } from "./launcher.js";
 import { isValidSkillName, listAvailableSkills } from "./skill-loader.js";
 import { checkCodexCliStatus, describeCodexCliPath } from "./codex.js";
 import { getServicesStatus, startService, stopService } from "./services.js";
+import { getWakeInfo, sendWake } from "./wake.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const publicDir = join(projectDir, "modules", "web-console", "public");
@@ -370,6 +371,12 @@ async function handleApi(req, res) {
     const body = await readBody(req);
     return sendJson(res, 200, await stopService(String(body.service || "")));
   }
+  if (req.method === "GET" && path === "/api/wake/info") {
+    return sendJson(res, 200, getWakeInfo());
+  }
+  if (req.method === "POST" && path === "/api/wake") {
+    return sendJson(res, 200, await sendWake());
+  }
   if (req.method === "GET" && path === "/api/memory") {
     return sendJson(res, 200, {
       qq: {
@@ -439,7 +446,9 @@ async function handleApi(req, res) {
 
 async function serveStatic(req, res) {
   const pathname = (req.url || "/").split("?")[0] || "/";
-  const rawPath = pathname === "/" ? "/dashboard.html" : pathname;
+  let rawPath = pathname === "/" ? "/dashboard.html" : pathname;
+  if (rawPath.endsWith("/")) rawPath += "index.html";
+  else if (rawPath === "/app") rawPath = "/app/index.html";
   let safePath;
   try {
     safePath = normalize(decodeURIComponent(rawPath)).replace(/^(\.\.[/\\])+/, "").replace(/^([/\\])/, "");
@@ -457,6 +466,7 @@ async function serveStatic(req, res) {
     ".js": "text/javascript; charset=utf-8",
     ".css": "text/css; charset=utf-8",
     ".json": "application/json; charset=utf-8",
+    ".webmanifest": "application/manifest+json; charset=utf-8",
     ".png": "image/png",
     ".svg": "image/svg+xml",
     ".ico": "image/x-icon"
@@ -498,6 +508,34 @@ async function main() {
       console.error("OneBot WS event error:", error.message);
     });
   } });
+
+  const autoStart = String(process.env.AUTO_START_SERVICES || "")
+    .split(",")
+    .map((id) => id.trim())
+    .filter(Boolean);
+  if (autoStart.length) {
+    (async () => {
+      try {
+        const status = await getServicesStatus();
+        const running = new Set(status.services.filter((s) => s.running).map((s) => s.id));
+        let delay = 6000;
+        for (const id of autoStart) {
+          if (running.has(id)) {
+            console.log(`[auto-start] ${id}: already running`);
+            continue;
+          }
+          setTimeout(() => {
+            startService(id)
+              .then((result) => console.log(`[auto-start] ${id}:`, result.ok ? "started" : result.error || "failed"))
+              .catch((error) => console.error(`[auto-start] ${id}:`, error.message));
+          }, delay);
+          delay += 8000;
+        }
+      } catch (error) {
+        console.error("[auto-start] status check failed:", error.message);
+      }
+    })();
+  }
 
   const server = createServer(async (req, res) => {
     try {
