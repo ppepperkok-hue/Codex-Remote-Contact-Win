@@ -4,7 +4,6 @@ import { fileURLToPath } from "node:url";
 import {
   codexWorkspaceDir,
   saveQqMemory,
-  saveQqPersonas,
   runtimeRepliesDir
 } from "./settings.js";
 import { isValidModel, normalizeReasoningEffort, runCodexExec } from "./codex.js";
@@ -94,11 +93,6 @@ function extractTargetId(event, normalized) {
   if (at) return String(at.data.qq);
   const match = String(normalized || "").match(/\d{5,}/);
   return match ? match[0] : "";
-}
-
-function pickBeat() {
-  const beats = ["收到", "明白", "嗯", "好"];
-  return beats[Math.floor(Math.random() * beats.length)];
 }
 
 function pickAck() {
@@ -251,12 +245,10 @@ export async function buildQqCommandAction(event, state, actions) {
   if (/^(清理记忆|清空记忆|清除记忆)$/i.test(c)) {
     state.qq.memory.entries = {};
     state.qq.memory.recentMessages = {};
-    state.qq.personas.groups = {};
     return {
       reply: "QQ 记忆已清空，desuwa。",
       afterSend: async () => {
         await saveQqMemory(state.qq.memory);
-        await saveQqPersonas(state.qq.personas);
       }
     };
   }
@@ -334,16 +326,6 @@ function formatMemoryContext(event, state) {
   return recent
     .map((m) => `${m.userName || m.userId}: ${m.text}`)
     .join("\n");
-}
-
-function updatePersona(event, state) {
-  if (!event.groupId || !event.userId) return;
-  const group = state.qq.personas.groups[event.groupId] || { members: {} };
-  const member = group.members[event.userId] || { name: event.userName || "", topics: [], count: 0 };
-  member.name = event.userName || member.name;
-  member.count += 1;
-  group.members[event.userId] = member;
-  state.qq.personas.groups[event.groupId] = group;
 }
 
 async function buildWorkspaceInstructions(state, extra) {
@@ -432,7 +414,6 @@ export async function handleQqEvent(event, state, actions) {
     error: null,
     send: null
   };
-  updatePersona(event, state);
   rememberGroupMessage(event, state);
   await saveQqMemory(state.qq.memory);
 

@@ -34,7 +34,6 @@ const els = {
   eventsFull: document.querySelector("#eventsFull"),
   healthList: document.querySelector("#healthList"),
   overallPill: document.querySelector("#overallPill"),
-  autoPill: document.querySelector("#autoPill"),
   checkedAt: document.querySelector("#checkedAt"),
   hubDot: document.querySelector("#hubDot"),
   hubMini: document.querySelector("#hubMini"),
@@ -43,7 +42,6 @@ const els = {
 
 let serviceCache = null;
 let maintenanceCache = null;
-let stateCache = null;
 let polling = true;
 const pending = new Set();
 const pendingTimers = new Map();
@@ -141,7 +139,7 @@ function renderServices(services) {
         ...svc.ws.map((p) => ({ k: "WS", v: p.port, up: p.up }))
       ];
       const loginHint = svc.id.startsWith("napcat")
-        ? `<div class="login-hint">启动后桌面会弹出 QQ 登录窗口，扫码或密码登录，登录后 OneBot 才可用。</div>`
+        ? `<div class="login-hint">启动后会自动快速登录；若登录态失效，需扫码登录一次。</div>`
         : "";
       const startBtn = svc.startable
         ? `<button type="button" class="btn primary small" data-action="start" data-service="${svc.id}" ${svc.running || starting ? "disabled" : ""}>
@@ -194,17 +192,17 @@ function renderEvents(events) {
   const rows = events.length
     ? events
         .map((record) => {
-          const sender = record.event?.senderLabel || record.event?.senderName || "未知群友";
+          const sender = record.userName || record.userId || "未知群友";
           const decided = record.decision?.ok ? "回复" : "忽略";
           const tone = record.decision?.ok ? "ok" : "quiet";
           return `
             <div class="event-item">
               <div class="event-meta">
                 <span>${formatTime(record.receivedAt)} · <span class="pill ${tone}">${decided}</span></span>
-                <span>${escapeHtml(record.event?.groupId || "")}</span>
+                <span>${escapeHtml(record.groupId || "")}</span>
               </div>
               <div class="event-text">
-                <strong>${escapeHtml(sender)}：</strong>${escapeHtml(record.event?.text || "")}
+                <strong>${escapeHtml(sender)}：</strong>${escapeHtml(record.text || "")}
               </div>
             </div>
           `;
@@ -279,8 +277,6 @@ async function refresh() {
     ]);
     serviceCache = servicesRes;
     maintenanceCache = maintenanceRes;
-    stateCache = stateRes;
-
     renderStats(servicesRes.services);
     renderServices(servicesRes.services);
     renderEvents(stateRes.qq?.recentEvents || []);
@@ -315,6 +311,9 @@ async function startService(id) {
       body: JSON.stringify({ service: id })
     });
     if (!result.ok) throw new Error(result.error || "启动失败");
+    pending.delete(id);
+    clearTimeout(pendingTimers.get(id));
+    pendingTimers.delete(id);
     setTimeout(refresh, 2500);
   } catch (error) {
     alert(`启动失败：${error.message}`);

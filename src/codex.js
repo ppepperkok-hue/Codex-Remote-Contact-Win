@@ -30,7 +30,6 @@ async function findCodexDesktopCli() {
   return null;
 }
 
-let resolvedCliPath = null;
 let resolvedSpawnSpec = null;
 
 async function resolveNpmCodexJs() {
@@ -68,27 +67,6 @@ export async function resolveCodexSpawn() {
   }
   resolvedSpawnSpec = { file: "codex", prefix: [] };
   return resolvedSpawnSpec;
-}
-
-export async function resolveCodexCliPath() {
-  if (resolvedCliPath) return resolvedCliPath;
-  const fromEnv = process.env.CODEX_CLI_PATH;
-  if (fromEnv) {
-    try {
-      await access(fromEnv);
-      resolvedCliPath = fromEnv;
-      return resolvedCliPath;
-    } catch {
-      // fall through
-    }
-  }
-  const desktopCli = await findCodexDesktopCli();
-  if (desktopCli) {
-    resolvedCliPath = desktopCli;
-    return resolvedCliPath;
-  }
-  resolvedCliPath = "codex"; // rely on PATH (e.g. npm i -g @openai/codex)
-  return resolvedCliPath;
 }
 
 export async function checkCodexCliStatus() {

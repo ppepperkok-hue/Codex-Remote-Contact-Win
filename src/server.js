@@ -6,13 +6,11 @@ import { fileURLToPath } from "node:url";
 import {
   codexWorkspaceDir,
   loadQqMemory,
-  loadQqPersonas,
   loadRemoteExecutionMemory,
   loadSettings,
   projectDir,
   saveJsonFile,
   saveQqMemory,
-  saveQqPersonas,
   saveSettings
 } from "./settings.js";
 import { checkOneBotHealth, getOneBotConnectionStatus, sendPrivateMessage, startOneBotWS } from "./onebot.js";
@@ -54,7 +52,6 @@ const state = {
   channels: { qq: true },
   qq: {
     memory: null,
-    personas: null,
     events: []
   },
   ai: null,
@@ -463,14 +460,11 @@ async function handleApi(req, res) {
     if (body.groupId) {
       delete state.qq.memory.entries[String(body.groupId)];
       delete state.qq.memory.recentMessages[String(body.groupId)];
-      delete state.qq.personas.groups[String(body.groupId)];
     } else {
       state.qq.memory.entries = {};
       state.qq.memory.recentMessages = {};
-      state.qq.personas.groups = {};
     }
     await saveQqMemory(state.qq.memory);
-    await saveQqPersonas(state.qq.personas);
     await saveStateSettings();
     return sendJson(res, 200, buildPublicState());
   }
@@ -556,7 +550,6 @@ async function main() {
     process.env.CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX ||
     "danger-full-access";
   state.qq.memory = await loadQqMemory();
-  state.qq.personas = await loadQqPersonas();
   state.remoteExecution.memory = await loadRemoteExecutionMemory();
 
   await mkdir(runtimeDir, { recursive: true });

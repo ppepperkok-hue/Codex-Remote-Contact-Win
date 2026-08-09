@@ -7,7 +7,6 @@ export const projectDir = join(__dirname, "..");
 export const dataDir = join(projectDir, "data");
 export const settingsPath = join(dataDir, "settings.json");
 export const qqMemoryPath = join(dataDir, "qq-memory.json");
-export const qqPersonasPath = join(dataDir, "qq-personas.json");
 export const remoteExecutionMemoryPath = join(dataDir, "remote-execution-memory.json");
 export const codexWorkspaceDir = join(projectDir, "workspaces", "codex-cli");
 export const runtimeRepliesDir = join(projectDir, "runtime", "replies");
@@ -71,14 +70,6 @@ export async function loadQqMemory() {
 
 export async function saveQqMemory(memory) {
   await saveJsonFile(qqMemoryPath, memory);
-}
-
-export async function loadQqPersonas() {
-  return loadJsonFile(qqPersonasPath, { groups: {} });
-}
-
-export async function saveQqPersonas(personas) {
-  await saveJsonFile(qqPersonasPath, personas);
 }
 
 export async function loadRemoteExecutionMemory() {
