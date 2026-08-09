@@ -8,6 +8,8 @@
 （原版是 macOS + iMessage 的架构），本仓库为 Windows 移植版：
 QQ/OneBot（NapCat）通道 + Codex CLI 回复 + Web 服务控制台 + 远程执行 + 本机系统控制。
 
+> 当前归档版本：**v1.0.0**（2026-08-09）。
+
 ## 功能
 
 - **管理员 QQ 私聊 = 完整 Codex 通道**：默认 `danger-full-access` 沙箱，带独立记忆，
@@ -105,14 +107,9 @@ Hub 默认只监听 `127.0.0.1`。要在同一局域网内的手机上打开控�
 
 1. 让 Hub 监听所有网卡并设置访问密码（建议同时设置）：
 
-   ```powershell
-   $env:CODEX_REMOTE_CONTACT_HOST = "0.0.0.0"
-   $env:CODEX_REMOTE_CONTACT_ACCESS_TOKEN = "你的访问密码"
-   npm start
-   ```
-
-   启动脚本 `start-dashboard.bat` 已内置这两个变量（默认密码可自行修改）。
-   注册表自启动项 `HKCU\...\Run\CodexRemoteHub` 也会带上同样的配置。
+   把值写进 `data/hub.env`（参考 `data/hub.env.example`），访问密码放在
+   `data/access-token.txt`，然后 `npm start` 或双击 `start-dashboard.bat`
+   启动（`src/load-env.js` 会自动读取；系统环境变量优先于文件）。
 
 2. 放行防火墙（以管理员身份执行一次即可）：
 
@@ -190,10 +187,7 @@ App 功能：
 
 - 服务总览：AstrBot / 各 NapCat / Hub 的运行状态，每 8 秒刷新；
 - 一键启动 / 停止服务，一键打开各服务 WebUI（自动使用当前访问的主机地址）；
-- 远程开机：显示本机 MAC 并测试发送 Wake-on-LAN 魔术包（配置在
-  `data/wake.json`，不入库）。电脑完全关机后 Hub 不在线，需用同一 Wi-Fi
-  下的原生 WOL App、路由器远程唤醒，或智能插座 + BIOS「断电恢复开机」；
-- 网页控制台入口与 QQ 通道状态。
+- 外网地址（公网隧道）入口与 QQ 通道状态。
 
 ### 开机自动启动
 
@@ -205,9 +199,10 @@ $env:AUTO_START_SERVICES = "napcat-10001,napcat-10002,astrbot"
 npm start
 ```
 
-`start-dashboard.bat` 与注册表自启动项已配置好当前机器的三个服务。配合
-Wake-on-LAN，可以实现「手机远程开机 → 自动登录 → Hub 自动拉起 NapCat + AstrBot
-+ QQ 通道」的完整无人值守链路。
+`start-dashboard.bat` 与注册表自启动项会读取 `data/hub.env` 里的服务清单。
+配合 Wake-on-LAN，可以实现「手机远程开机 → 自动登录 → Hub 自动拉起
+NapCat + AstrBot + QQ 通道」的完整无人值守链路；后端保留 `/api/wake`
+魔术包接口（`data/wake.json` 配置 MAC），供智能插座 / 路由器方案调用。
 
 ## QQ 指令（管理员私聊 / 群内 @）
 
