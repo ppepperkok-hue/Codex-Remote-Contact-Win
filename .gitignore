@@ -8,6 +8,7 @@ data/*-memory.json
 data/settings.json
 data/services.json
 data/apps-cache.json
+data/access-token.txt
 *.log
 .DS_Store
 Thumbs.db

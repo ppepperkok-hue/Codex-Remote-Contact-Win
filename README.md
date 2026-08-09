@@ -97,6 +97,41 @@ POST /api/services/start   { "service": "astrbot" | "napcat-<qq>" }
 POST /api/services/stop    { "service": "astrbot" | "napcat-<qq>" }
 ```
 
+## 手机 / 局域网访问
+
+Hub 默认只监听 `127.0.0.1`。要在同一局域网内的手机上打开控制台和各个 WebUI：
+
+1. 让 Hub 监听所有网卡并设置访问密码（建议同时设置）：
+
+   ```powershell
+   $env:CODEX_REMOTE_CONTACT_HOST = "0.0.0.0"
+   $env:CODEX_REMOTE_CONTACT_ACCESS_TOKEN = "你的访问密码"
+   npm start
+   ```
+
+   启动脚本 `start-dashboard.bat` 已内置这两个变量（默认密码可自行修改）。
+   注册表自启动项 `HKCU\...\Run\CodexRemoteHub` 也会带上同样的配置。
+
+2. 放行防火墙（以管理员身份执行一次即可）：
+
+   ```powershell
+   New-NetFirewallRule -DisplayName "CRC LAN 3789" -Direction Inbound -Protocol TCP -LocalPort 3789 -Action Allow -Profile Public,Private
+   # 6099 / 6100（NapCat WebUI）、6185 / 6199（AstrBot）同理
+   ```
+
+3. 查电脑的局域网 IP（和手机连同一个路由器/Wi-Fi）：
+
+   ```powershell
+   Get-NetIPAddress -AddressFamily IPv4 | Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' }
+   ```
+
+4. 手机浏览器打开 `http://<电脑IP>:3789`，输入访问密码进入控制台。
+   面板里的 WebUI 链接会自动指向电脑的局域网 IP；NapCat WebUI 还需要它自己的
+   token（`<NapCat>/config/webui.json` 里的 `token` 字段），AstrBot 用自己的登录密码。
+
+> 安全提示：手机访问意味着控制台暴露在局域网内。访问密码只保护 Hub 本身；
+> NapCat / AstrBot 各自的 WebUI 凭据要单独保管，不要用默认密码。
+
 ## QQ 指令（管理员私聊 / 群内 @）
 
 ```text
@@ -121,6 +156,7 @@ POST /api/services/stop    { "service": "astrbot" | "napcat-<qq>" }
 | `CODEX_CLI_PATH` | `codex`（PATH） | Codex CLI 可执行文件路径 |
 | `CODEX_REMOTE_CONTACT_PORT` | `3789` | Hub HTTP 端口 |
 | `CODEX_REMOTE_CONTACT_HOST` | `127.0.0.1` | 监听地址（内网访问请自行配鉴权） |
+| `CODEX_REMOTE_CONTACT_ACCESS_TOKEN` | 空 | 非本机访问控制台所需的访问密码（设置后生效） |
 | `CODEX_REMOTE_CONTACT_ASSISTANT_PROFILE_PATH` | 空 | 写入工作区 AGENTS.md 的风格文件 |
 | `CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX` | `read-only` | 远程执行默认沙箱 |
 | `CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_IDLE_TTL_MS` | `900000` | 远程执行空闲超时 |

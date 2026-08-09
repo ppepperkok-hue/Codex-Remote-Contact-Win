@@ -34,6 +34,7 @@ const systemControlDir = join(projectDir, "modules", "system-control");
 const runtimeDir = join(projectDir, "runtime");
 const PORT = Number(process.env.CODEX_REMOTE_CONTACT_PORT || 3789);
 const HOST = process.env.CODEX_REMOTE_CONTACT_HOST || "127.0.0.1";
+const ACCESS_TOKEN = process.env.CODEX_REMOTE_CONTACT_ACCESS_TOKEN || "";
 
 const seenEventKeys = new Map();
 
@@ -79,6 +80,75 @@ function sendJson(res, code, body) {
   });
   res.end(JSON.stringify(body));
 }
+
+function isLoopbackAddress(addr) {
+  return addr === "127.0.0.1" || addr === "::1" || addr === "::ffff:127.0.0.1";
+}
+
+function requestHasValidToken(req) {
+  if (!ACCESS_TOKEN) return true;
+  const header = req.headers["x-access-token"] || "";
+  const query = (() => {
+    try {
+      return new URL(req.url || "/", "http://localhost").searchParams.get("access_token") || "";
+    } catch {
+      return "";
+    }
+  })();
+  const cookie = (req.headers.cookie || "")
+    .split(";")
+    .map((part) => part.trim())
+    .some((part) => part === `crc_access_token=${ACCESS_TOKEN}`);
+  return header === ACCESS_TOKEN || query === ACCESS_TOKEN || cookie;
+}
+
+const LOGIN_PAGE = `<!doctype html>
+<html lang="zh">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Codex Remote Contact · 访问密码</title>
+  <style>
+    body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center;
+           background: #0f1117; color: #e6e6e6; font-family: system-ui, "Microsoft YaHei", sans-serif; }
+    .card { background: #1a1d27; border: 1px solid #2c3142; border-radius: 14px; padding: 28px 32px;
+            width: min(88vw, 340px); box-shadow: 0 12px 40px rgba(0,0,0,.45); }
+    h1 { font-size: 17px; margin: 0 0 6px; }
+    p { color: #9aa3b5; font-size: 13px; margin: 0 0 18px; }
+    input { width: 100%; box-sizing: border-box; padding: 10px 12px; border-radius: 8px;
+            border: 1px solid #333a4d; background: #12151d; color: #fff; font-size: 15px; outline: none; }
+    input:focus { border-color: #5b8cff; }
+    button { width: 100%; margin-top: 14px; padding: 10px 12px; border: 0; border-radius: 8px;
+             background: #4f7cff; color: #fff; font-size: 15px; cursor: pointer; }
+    button:active { background: #3f66d8; }
+    .err { color: #ff7a7a; font-size: 12px; min-height: 16px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Codex Remote Contact</h1>
+    <p>请输入访问密码进入控制台</p>
+    <input id="pin" type="password" placeholder="访问密码" autocomplete="current-password" autofocus />
+    <button id="go">进入</button>
+    <div class="err" id="err"></div>
+  </div>
+  <script>
+    const input = document.getElementById("pin");
+    const btn = document.getElementById("go");
+    const err = document.getElementById("err");
+    function submit() {
+      const value = input.value.trim();
+      if (!value) { err.textContent = "密码不能为空"; return; }
+      document.cookie = "crc_access_token=" + encodeURIComponent(value) +
+        "; path=/; max-age=31536000; SameSite=Lax";
+      location.reload();
+    }
+    btn.addEventListener("click", submit);
+    input.addEventListener("keydown", (e) => { if (e.key === "Enter") submit(); });
+    setTimeout(() => input.focus(), 50);
+  </script>
+</body>
+</html>`;
 
 async function readBody(req) {
   const chunks = [];
@@ -272,24 +342,35 @@ async function ensureWorkspace() {
 }
 
 async function handleApi(req, res) {
-  if (req.method === "GET" && req.url === "/api/state") {
+  const path = (req.url || "").split("?")[0];
+  if (req.method === "GET" && path === "/api/state") {
     return sendJson(res, 200, buildPublicState());
   }
-  if (req.method === "GET" && req.url === "/api/maintenance") {
+  if (req.method === "GET" && path === "/api/maintenance") {
     return sendJson(res, 200, await buildMaintenanceStatus());
   }
-  if (req.method === "GET" && req.url === "/api/services") {
-    return sendJson(res, 200, await getServicesStatus());
+  if (req.method === "GET" && path === "/api/services") {
+    const status = await getServicesStatus();
+    const hostname = String(req.headers.host || "").split(":")[0] || "127.0.0.1";
+    for (const svc of status.services || []) {
+      if (svc.webui) {
+        svc.webui = svc.webui.replace(
+          /^https?:\/\/(127\.0\.0\.1|localhost)(:\d+)?/i,
+          `http://${hostname}$2`
+        );
+      }
+    }
+    return sendJson(res, 200, status);
   }
-  if (req.method === "POST" && req.url === "/api/services/start") {
+  if (req.method === "POST" && path === "/api/services/start") {
     const body = await readBody(req);
     return sendJson(res, 200, await startService(String(body.service || "")));
   }
-  if (req.method === "POST" && req.url === "/api/services/stop") {
+  if (req.method === "POST" && path === "/api/services/stop") {
     const body = await readBody(req);
     return sendJson(res, 200, await stopService(String(body.service || "")));
   }
-  if (req.method === "GET" && req.url === "/api/memory") {
+  if (req.method === "GET" && path === "/api/memory") {
     return sendJson(res, 200, {
       qq: {
         groups: Object.keys(state.qq.memory.entries || {}).length,
@@ -298,13 +379,13 @@ async function handleApi(req, res) {
       remoteExecution: (state.remoteExecution.memory.entries || []).length
     });
   }
-  if (req.method === "POST" && req.url === "/api/channel") {
+  if (req.method === "POST" && path === "/api/channel") {
     const body = await readBody(req);
     if (!["qq"].includes(body.channel)) return sendJson(res, 400, { error: "Unknown channel" });
     state.channels[body.channel] = Boolean(body.enabled);
     return sendJson(res, 200, buildPublicState());
   }
-  if (req.method === "POST" && req.url === "/api/qq/groups") {
+  if (req.method === "POST" && path === "/api/qq/groups") {
     const body = await readBody(req);
     if (Array.isArray(body.allowedGroups)) {
       state.qq.allowedGroups = normalizeList(body.allowedGroups);
@@ -312,13 +393,13 @@ async function handleApi(req, res) {
     }
     return sendJson(res, 200, buildPublicState());
   }
-  if (req.method === "POST" && (req.url === "/api/imessage/trusted-handles" || req.url === "/api/imessage/reply-handle")) {
+  if (req.method === "POST" && (path === "/api/imessage/trusted-handles" || path === "/api/imessage/reply-handle")) {
     return sendJson(res, 200, {
       ok: false,
       reason: "iMessage is macOS-only; this Windows port uses QQ private messages as the trusted control channel"
     });
   }
-  if (req.method === "POST" && req.url === "/api/qq/memory/clear") {
+  if (req.method === "POST" && path === "/api/qq/memory/clear") {
     const body = await readBody(req);
     if (body.groupId) {
       delete state.qq.memory.entries[String(body.groupId)];
@@ -334,7 +415,7 @@ async function handleApi(req, res) {
     await saveStateSettings();
     return sendJson(res, 200, buildPublicState());
   }
-  if (req.method === "POST" && req.url === "/api/memory/clear") {
+  if (req.method === "POST" && path === "/api/memory/clear") {
     const body = await readBody(req);
     if (body.scope === "remoteExecution") {
       state.remoteExecution.memory.entries = [];
@@ -343,13 +424,13 @@ async function handleApi(req, res) {
     }
     return sendJson(res, 400, { error: "Unknown memory scope" });
   }
-  if (req.method === "POST" && req.url === "/api/qq/event") {
+  if (req.method === "POST" && path === "/api/qq/event") {
     const payload = await readBody(req);
     const event = normalizeOneBotEvent(payload);
     const record = await handleQqEvent(event, state, actions);
     return sendJson(res, 200, record);
   }
-  if (req.method === "POST" && req.url === "/api/onebot/event") {
+  if (req.method === "POST" && path === "/api/onebot/event") {
     const payload = await readBody(req);
     return sendJson(res, 200, await processOneBotPayload(payload));
   }
@@ -357,7 +438,8 @@ async function handleApi(req, res) {
 }
 
 async function serveStatic(req, res) {
-  const rawPath = req.url === "/" ? "/dashboard.html" : req.url.split("?")[0];
+  const pathname = (req.url || "/").split("?")[0] || "/";
+  const rawPath = pathname === "/" ? "/dashboard.html" : pathname;
   let safePath;
   try {
     safePath = normalize(decodeURIComponent(rawPath)).replace(/^(\.\.[/\\])+/, "").replace(/^([/\\])/, "");
@@ -419,6 +501,17 @@ async function main() {
 
   const server = createServer(async (req, res) => {
     try {
+      if (ACCESS_TOKEN && !isLoopbackAddress(req.socket.remoteAddress || "") && !requestHasValidToken(req)) {
+        if (req.url?.startsWith("/api/")) {
+          return sendJson(res, 401, { error: "Unauthorized" });
+        }
+        if (req.method === "GET") {
+          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+          res.end(LOGIN_PAGE);
+          return;
+        }
+        return sendJson(res, 401, { error: "Unauthorized" });
+      }
       if (req.url?.startsWith("/api/")) {
         const handled = await handleApi(req, res);
         if (handled !== false) return;
