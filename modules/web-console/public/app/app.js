@@ -4,6 +4,8 @@ const statusChip = $("status-chip");
 const hostLabel = $("host-label");
 const macList = $("mac-list");
 const qqStatus = $("qq-status");
+const remoteRow = $("remote-row");
+const remoteLink = $("remote-link");
 
 let toastTimer = null;
 function toast(text) {
@@ -73,10 +75,11 @@ function serviceCard(svc) {
 
 async function refresh() {
   try {
-    const [servicesData, stateData, wakeData] = await Promise.all([
+    const [servicesData, stateData, wakeData, remoteData] = await Promise.all([
       api("/api/services"),
       api("/api/state"),
-      api("/api/wake/info").catch(() => null)
+      api("/api/wake/info").catch(() => null),
+      api("/api/remote-url").catch(() => null)
     ]);
     const anyUp = servicesData.services.some((s) => s.running);
     statusChip.textContent = anyUp ? "在线" : "离线";
@@ -91,6 +94,12 @@ async function refresh() {
         : "未配置（data/wake.json）";
     } else {
       macList.textContent = "—";
+    }
+    if (remoteData?.url) {
+      remoteRow.style.display = "flex";
+      remoteLink.href = remoteData.url;
+    } else {
+      remoteRow.style.display = "none";
     }
   } catch (error) {
     if (error.message === "unauthorized") return;

@@ -201,6 +201,18 @@ async function buildMaintenanceStatus() {
   };
 }
 
+async function getRemoteUrl() {
+  const logPath = join(runtimeDir, "cloudflared.log");
+  try {
+    const raw = await readFile(logPath, "utf8");
+    const urls = [...raw.matchAll(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/g)].map((m) => m[0]);
+    const url = urls.length ? urls[urls.length - 1] : null;
+    return { ok: Boolean(url), url };
+  } catch {
+    return { ok: false, url: null };
+  }
+}
+
 async function processOneBotPayload(payload) {
   if (payload.post_type !== "message" || !["group", "private"].includes(payload.message_type)) {
     return { ignored: true, reason: "Only message events are handled" };
@@ -377,6 +389,9 @@ async function handleApi(req, res) {
   if (req.method === "POST" && path === "/api/wake") {
     return sendJson(res, 200, await sendWake());
   }
+  if (req.method === "GET" && path === "/api/remote-url") {
+    return sendJson(res, 200, await getRemoteUrl());
+  }
   if (req.method === "GET" && path === "/api/memory") {
     return sendJson(res, 200, {
       qq: {
@@ -539,7 +554,7 @@ async function main() {
 
   const server = createServer(async (req, res) => {
     try {
-      if (ACCESS_TOKEN && !isLoopbackAddress(req.socket.remoteAddress || "") && !requestHasValidToken(req)) {
+      if (ACCESS_TOKEN && !requestHasValidToken(req)) {
         if (req.url?.startsWith("/api/")) {
           return sendJson(res, 401, { error: "Unauthorized" });
         }

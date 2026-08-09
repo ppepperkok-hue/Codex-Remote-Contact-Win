@@ -132,6 +132,26 @@ Hub 默认只监听 `127.0.0.1`。要在同一局域网内的手机上打开控�
 > 安全提示：手机访问意味着控制台暴露在局域网内。访问密码只保护 Hub 本身；
 > NapCat / AstrBot 各自的 WebUI 凭据要单独保管，不要用默认密码。
 
+### 外网访问（可选）
+
+两条路线可以同时用：
+
+**Tailscale（推荐，私有网络）**：电脑装 Tailscale 并登录，手机装 Tailscale App
+用同一个账号登录，之后在外网打开 `http://<电脑Tailscale地址>:3789/app/`。
+
+**Cloudflare Quick Tunnel（免安装）**：`cloudflared` 把 Hub 发布成一个公网
+HTTPS 地址，手机任何浏览器直接打开，不用装任何 App：
+
+```powershell
+cloudflared tunnel --url http://127.0.0.1:3789 --protocol http2 --edge-ip-version 4
+```
+
+启动后日志里会出现 `https://xxxx.trycloudflare.com`，Hub 的
+`GET /api/remote-url` 和手机 App 的「外网地址」会自动显示当前公网地址。
+注意 quick tunnel 地址在每次重启后会变化；有 Cloudflare 账号的话可以换成本地
+命名隧道固定域名。因为隧道是从本机转发的，Hub 对**所有来源**（包括本机）都要求
+访问密码，公网上没有密码一律 401。
+
 ### 手机 App（PWA，可安装到主屏幕）
 
 手机浏览器打开 `http://<电脑IP>:3789/app/`，输入访问密码后：
