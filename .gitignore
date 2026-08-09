@@ -1,0 +1,13 @@
+node_modules/
+runtime/
+workspaces/codex-cli/AGENTS.md
+workspaces/codex-cli/mcp_probe.mjs
+workspaces/codex-cli/reply-*.txt
+workspaces/codex-cli/remote-*.txt
+data/*-memory.json
+data/settings.json
+data/services.json
+data/apps-cache.json
+*.log
+.DS_Store
+Thumbs.db

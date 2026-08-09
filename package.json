@@ -1,0 +1,13 @@
+{
+  "name": "codexremotecontact-win",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "description": "Codex Remote Contact for Windows: QQ/NapCat channel + Codex CLI replies + web console + remote execution",
+  "scripts": {
+    "start": "node src/server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

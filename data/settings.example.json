@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "updatedAt": null,
+  "qq": {
+    "allowedGroups": ["请填群号"],
+    "ownerUserIds": ["请填你的QQ号"],
+    "bannedUserIds": [],
+    "proactive": {
+      "enabled": false,
+      "minIntervalMs": 180000
+    }
+  },
+  "ai": {
+    "model": "auto",
+    "reasoningEffort": "medium"
+  },
+  "remoteExecution": {
+    "model": "auto",
+    "reasoningEffort": "medium",
+    "skill": "none"
+  },
+  "branding": {
+    "assistantName": "assistant",
+    "ownerLabel": "owner",
+    "assistantMentions": ["@assistant"]
+  }
+}

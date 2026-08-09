@@ -1,0 +1,32 @@
+{
+  "astrbot": {
+    "id": "astrbot",
+    "label": "AstrBot",
+    "role": "QQ 机器人框架",
+    "webui": "http://127.0.0.1:6185",
+    "httpPorts": [6185, 6199],
+    "vbs": "C:\\path\\to\\AstrBotLauncher\\start-astrbot-hidden.vbs",
+    "stopByPort": 6185,
+    "stopHint": "停止后 QQ 对话将不再自动回复"
+  },
+  "napcat-10001": {
+    "id": "napcat-10001",
+    "label": "NapCat 示例账号",
+    "role": "QQ 10001 · NapCat",
+    "qq": "10001",
+    "webui": "http://127.0.0.1:6099",
+    "httpPorts": [6099],
+    "wsPorts": [3001],
+    "vbs": "C:\\path\\to\\NapCat.Shell\\start-napcat-10001-hidden.vbs",
+    "stopByProcess": { "name": "NapCatWinBootMain.exe", "match": "10001" },
+    "stopHint": "会断开该 QQ 的登录，再次启动会快速登录，无需重新扫码"
+  },
+  "hub": {
+    "id": "hub",
+    "label": "Codex Remote Hub",
+    "role": "本管理面板",
+    "webui": "http://127.0.0.1:3789",
+    "httpPorts": [3789],
+    "self": true
+  }
+}

@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>服务控制台 · Codex Remote Contact</title>
+    <link rel="stylesheet" href="/dashboard.css" />
+  </head>
+  <body>
+    <div class="window">
+      <header class="titlebar">
+        <div class="traffic" aria-hidden="true">
+          <span class="dot red"></span>
+          <span class="dot yellow"></span>
+          <span class="dot green"></span>
+        </div>
+        <span class="titlebar-title">服务控制台</span>
+        <button type="button" class="icon-btn" data-theme-toggle aria-label="切换深浅色" title="切换深浅色">
+          <svg class="icon sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="4"></circle>
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"></path>
+          </svg>
+          <svg class="icon moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+          </svg>
+        </button>
+      </header>
+
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="brand">
+            <div class="brand-mark">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M13 2 3 14h7l-1 8 10-12h-7l1-8z"></path>
+              </svg>
+            </div>
+            <div class="brand-text">
+              <strong>Codex Remote</strong>
+              <span>本地服务控制台</span>
+            </div>
+          </div>
+
+          <nav class="nav">
+            <div class="nav-group">总览</div>
+            <a class="nav-item active" href="#overview" data-view="overview">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1.5"></rect>
+                <rect x="14" y="3" width="7" height="7" rx="1.5"></rect>
+                <rect x="3" y="14" width="7" height="7" rx="1.5"></rect>
+                <rect x="14" y="14" width="7" height="7" rx="1.5"></rect>
+              </svg>
+              服务状态
+            </a>
+            <a class="nav-item" href="#events" data-view="events">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path>
+              </svg>
+              事件记录
+            </a>
+            <div class="nav-group">工具</div>
+            <a class="nav-item" href="/index.html" target="_blank" rel="noopener">
+              <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9"></path>
+                <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path>
+              </svg>
+              详细设置
+            </a>
+          </nav>
+
+          <div class="sidebar-foot">
+            <div class="mini-row">
+              <span class="mini-dot" id="hubDot"></span>
+              <span id="hubMini">Hub 检测中</span>
+            </div>
+            <span class="mini-meta" id="checkedAt">--:--:-- 更新</span>
+          </div>
+        </aside>
+
+        <main class="main">
+          <div class="content">
+            <section class="page-head">
+              <div>
+                <h1>服务状态</h1>
+                <p>NapCat 与 AstrBot 的运行情况，直接在这里启动或停止，desuwa。</p>
+              </div>
+              <div class="head-actions">
+                <span class="pill" id="overallPill">检测中</span>
+                <button type="button" class="btn ghost" id="refreshBtn">
+                  <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 1 1-2.64-6.36"></path>
+                    <path d="M21 3v6h-6"></path>
+                  </svg>
+                  刷新
+                </button>
+              </div>
+            </section>
+
+            <section class="view active" data-view="overview">
+              <div class="stats-row" id="statsRow"></div>
+
+              <div class="section-head">
+                <div>
+                  <h2>本地服务</h2>
+                  <p>四个组件构成整套链路：AstrBot 负责对话，NapCat 负责登录 QQ，Hub 负责转发。</p>
+                </div>
+                <span class="pill quiet" id="autoPill">自动刷新中</span>
+              </div>
+
+              <div class="card-grid" id="serviceGrid"></div>
+
+              <div class="two-col">
+                <section class="two-col__col">
+                  <div class="section-head compact">
+                    <div>
+                      <h2>最近事件</h2>
+                      <p>最近 QQ 消息处理记录。</p>
+                    </div>
+                  </div>
+                  <div class="panel two-col__surface">
+                    <div class="scroll-region" id="eventsList"></div>
+                  </div>
+                </section>
+                <section class="two-col__col">
+                  <div class="section-head compact">
+                    <div>
+                      <h2>链路检查</h2>
+                      <p>OneBot 连接与 Codex CLI。</p>
+                    </div>
+                  </div>
+                  <div class="panel two-col__surface">
+                    <div class="health-list" id="healthList"></div>
+                  </div>
+                </section>
+              </div>
+            </section>
+
+            <section class="view" data-view="events">
+              <div class="panel events-panel">
+                <div class="scroll-region tall" id="eventsFull"></div>
+              </div>
+            </section>
+          </div>
+        </main>
+      </div>
+    </div>
+    <script src="/dashboard.js"></script>
+  </body>
+</html>
