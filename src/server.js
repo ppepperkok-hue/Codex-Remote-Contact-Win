@@ -461,6 +461,13 @@ async function handleApi(req, res) {
 
 async function serveStatic(req, res) {
   const pathname = (req.url || "/").split("?")[0] || "/";
+  const userAgent = String(req.headers["user-agent"] || "");
+  const isMobile = /Mobile|Android|iPhone|iPad|iPod/i.test(userAgent);
+  if (isMobile && (pathname === "/" || pathname === "/dashboard.html" || pathname === "/dashboard")) {
+    res.writeHead(302, { Location: "/app/" });
+    res.end();
+    return;
+  }
   let rawPath = pathname === "/" ? "/dashboard.html" : pathname;
   if (rawPath.endsWith("/")) rawPath += "index.html";
   else if (rawPath === "/app") rawPath = "/app/index.html";
