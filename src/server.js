@@ -15,7 +15,7 @@ import {
   saveQqPersonas,
   saveSettings
 } from "./settings.js";
-import { checkOneBotHealth, getOneBotConnectionStatus, startOneBotWS } from "./onebot.js";
+import { checkOneBotHealth, getOneBotConnectionStatus, sendPrivateMessage, startOneBotWS } from "./onebot.js";
 import { handleQqEvent, buildHelpText, buildQqStatusLine, normalizeOneBotEvent } from "./qq.js";
 import {
   buildRemoteExecutionReply,
@@ -584,6 +584,41 @@ async function main() {
       }
     })();
   }
+
+  // 隧道公网地址变化时，把最新地址私发给主人（避免重启后找不到新地址）
+  (async () => {
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 25000));
+      const info = await getRemoteUrl();
+      if (!info.url) return;
+      const statePath = join(runtimeDir, "last-remote-urls.json");
+      let previous = "";
+      try {
+        previous = JSON.parse(await readFile(statePath, "utf8")).current || "";
+      } catch {
+        // first run
+      }
+      const current = JSON.stringify(info.webuis);
+      if (previous === current) return;
+      await writeFile(statePath, JSON.stringify({ current, at: new Date().toISOString() }));
+      const status = await getServicesStatus();
+      const labelByPort = {};
+      for (const svc of status.services || []) {
+        const match = (svc.webui || "").match(/:(\d+)\/?$/);
+        if (match) labelByPort[match[1]] = svc.label;
+      }
+      const lines = ["外网地址已更新：", `面板：${info.url}`];
+      for (const [port, url] of Object.entries(info.webuis)) {
+        if (port === "3789") continue;
+        lines.push(`${labelByPort[port] || port}：${url}`);
+      }
+      for (const ownerId of state.qq.ownerUserIds || []) {
+        await sendPrivateMessage(ownerId, lines.join("\n")).catch(() => {});
+      }
+    } catch (error) {
+      console.error("[remote-url notify] failed:", error.message);
+    }
+  })();
 
   const server = createServer(async (req, res) => {
     try {
