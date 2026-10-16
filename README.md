@@ -1,5 +1,12 @@
 # Codex Remote Contact (Windows)
 
+<!-- moe-counter:start -->
+<p align="center">
+  <a href="https://github.com/journey-ad/Moe-Counter"><img src="https://count.getloli.com/get/@ppepperkok-hue.Codex-Remote-Contact-Win?theme=asoul" alt="README views" width="360" /></a>
+  <br /><sub>README views · Image requests, not unique visitors.</sub>
+</p>
+<!-- moe-counter:end -->
+
 在 Windows 上运行的 QQ 远程控制中枢：把 QQ 变成 Codex 的遥控器。
 管理员私聊直接获得完整 Codex 通道——开软件、执行命令、读写文件、截图、防休眠，
 就像在本地终端里对话；群聊默认只读短回复，安全边界清晰。
