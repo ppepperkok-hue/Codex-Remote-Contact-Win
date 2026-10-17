@@ -1,11 +1,13 @@
+<div align="center">
+
 # Codex Remote Contact (Windows)
 
 <!-- moe-counter:start -->
-<p align="center">
-  <a href="https://github.com/journey-ad/Moe-Counter"><img src="https://count.getloli.com/get/@ppepperkok-hue.Codex-Remote-Contact-Win?theme=asoul" alt="README views" width="360" /></a>
-  <br /><sub>README views · Image requests, not unique visitors.</sub>
-</p>
+<a href="https://github.com/journey-ad/Moe-Counter"><img src="https://count.getloli.com/get/@ppepperkok-hue.codex-remote-win?theme=asoul" alt="README views" width="360" /></a>
+<br /><sub>README 阅读 · 按图片请求计数</sub>
 <!-- moe-counter:end -->
+
+</div>
 
 在 Windows 上运行的 QQ 远程控制中枢：把 QQ 变成 Codex 的遥控器。
 管理员私聊直接获得完整 Codex 通道——开软件、执行命令、读写文件、截图、防休眠，
