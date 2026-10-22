@@ -13,11 +13,13 @@ import {
   saveQqMemory,
   saveSettings
 } from "./settings.js";
+import { applySettingsToState, buildSettingsSnapshot } from "./state-settings.js";
 import { checkOneBotHealth, getOneBotConnectionStatus, sendPrivateMessage, startOneBotWS } from "./onebot.js";
 import { handleQqEvent, buildHelpText, buildQqStatusLine, normalizeOneBotEvent } from "./qq.js";
 import {
   buildRemoteExecutionReply,
   executeRemoteExecutionCommand,
+  resolveRemoteExecutionSandbox,
   startIdleTimer,
   stopIdleTimer
 } from "./remote-exec.js";
@@ -26,6 +28,7 @@ import { isValidSkillName, listAvailableSkills } from "./skill-loader.js";
 import { checkCodexCliStatus, describeCodexCliPath } from "./codex.js";
 import { getServicesStatus, startService, stopService } from "./services.js";
 import { getWakeInfo, sendWake } from "./wake.js";
+import { evaluateAccess } from "./access.js";
 
 const __dirname = fileURLToPath(new URL(".", import.meta.url));
 const publicDir = join(projectDir, "modules", "web-console", "public");
@@ -33,7 +36,11 @@ const systemControlDir = join(projectDir, "modules", "system-control");
 const runtimeDir = join(projectDir, "runtime");
 const PORT = Number(process.env.CODEX_REMOTE_CONTACT_PORT || 3789);
 const HOST = process.env.CODEX_REMOTE_CONTACT_HOST || "127.0.0.1";
-const ACCESS_TOKEN = process.env.CODEX_REMOTE_CONTACT_ACCESS_TOKEN || "";
+const ACCESS_TOKEN = String(process.env.CODEX_REMOTE_CONTACT_ACCESS_TOKEN || "").trim();
+const ALLOWED_HOSTS = String(process.env.CODEX_REMOTE_CONTACT_ALLOWED_HOSTS || "")
+  .split(",")
+  .map((name) => name.trim())
+  .filter(Boolean);
 
 const seenEventKeys = new Map();
 
@@ -61,7 +68,8 @@ const state = {
     pendingAction: null,
     memory: null,
     idleTimer: null,
-    lastActiveAt: 0
+    lastActiveAt: 0,
+    sandboxExplicit: false
   },
   branding: null,
   maintenance: {
@@ -77,23 +85,6 @@ function sendJson(res, code, body) {
     "Cache-Control": "no-store"
   });
   res.end(JSON.stringify(body));
-}
-
-function requestHasValidToken(req) {
-  if (!ACCESS_TOKEN) return true;
-  const header = req.headers["x-access-token"] || "";
-  const query = (() => {
-    try {
-      return new URL(req.url || "/", "http://localhost").searchParams.get("access_token") || "";
-    } catch {
-      return "";
-    }
-  })();
-  const cookie = (req.headers.cookie || "")
-    .split(";")
-    .map((part) => part.trim())
-    .some((part) => part === `crc_access_token=${ACCESS_TOKEN}`);
-  return header === ACCESS_TOKEN || query === ACCESS_TOKEN || cookie;
 }
 
 const LOGIN_PAGE = `<!doctype html>
@@ -170,7 +161,7 @@ function buildPublicState() {
       model: state.remoteExecution.model,
       reasoningEffort: state.remoteExecution.reasoningEffort,
       skill: state.remoteExecution.skill,
-      sandbox: state.remoteExecution.sandbox
+      sandbox: resolveRemoteExecutionSandbox(state)
     },
     lastOpenedApp: state.lastOpenedApp,
     branding: { ...state.branding }
@@ -190,7 +181,7 @@ async function buildMaintenanceStatus() {
       enabled: state.remoteExecution.enabled,
       model: state.remoteExecution.model,
       reasoningEffort: state.remoteExecution.reasoningEffort,
-      sandbox: state.remoteExecution.sandbox
+      sandbox: resolveRemoteExecutionSandbox(state)
     },
     memory: {
       qqGroups: Object.keys(state.qq.memory.entries || {}).length,
@@ -256,26 +247,7 @@ function normalizeList(items) {
 }
 
 async function saveStateSettings() {
-  const settings = {
-    ...state.settings,
-    version: 1,
-    updatedAt: new Date().toISOString(),
-    qq: {
-      allowedGroups: state.qq.allowedGroups,
-      ownerUserIds: state.qq.ownerUserIds,
-      bannedUserIds: state.qq.bannedUserIds,
-      proactive: state.settings.qq?.proactive || { enabled: false, minIntervalMs: 180000 }
-    },
-    ai: { ...state.ai },
-    remoteExecution: {
-      model: state.remoteExecution.model,
-      reasoningEffort: state.remoteExecution.reasoningEffort,
-      skill: state.remoteExecution.skill,
-      sandbox: state.remoteExecution.sandbox
-    },
-    lastOpenedApp: state.lastOpenedApp,
-    branding: { ...state.branding }
-  };
+  const settings = buildSettingsSnapshot(state);
   state.settings = settings;
   await saveSettings(settings);
 }
@@ -541,20 +513,9 @@ async function serveStatic(req, res) {
 }
 
 async function main() {
-  state.settings = await loadSettings();
-  state.qq.allowedGroups = state.settings.qq.allowedGroups || [];
-  state.qq.ownerUserIds = state.settings.qq.ownerUserIds || [];
-  state.qq.bannedUserIds = state.settings.qq.bannedUserIds || [];
-  state.ai = state.settings.ai || {};
-  state.lastOpenedApp = state.settings.lastOpenedApp || null;
-  state.branding = state.settings.branding || {};
-  state.remoteExecution.model = state.settings.remoteExecution?.model || "gpt-5.4";
-  state.remoteExecution.reasoningEffort = state.settings.remoteExecution?.reasoningEffort || "medium";
-  state.remoteExecution.skill = state.settings.remoteExecution?.skill || "none";
-  state.remoteExecution.sandbox =
-    state.settings.remoteExecution?.sandbox ||
-    process.env.CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX ||
-    "danger-full-access";
+  // Keeps the persisted owner choice in state.remoteExecution.sandbox; the
+  // effective value (env override included) is resolved on every read.
+  applySettingsToState(state, await loadSettings());
   state.qq.memory = await loadQqMemory();
   state.remoteExecution.memory = await loadRemoteExecutionMemory();
 
@@ -632,18 +593,22 @@ async function main() {
 
   const server = createServer(async (req, res) => {
     try {
-      if (ACCESS_TOKEN && !requestHasValidToken(req)) {
-        if (req.url?.startsWith("/api/")) {
-          return sendJson(res, 401, { error: "Unauthorized" });
-        }
-        if (req.method === "GET") {
-          res.writeHead(200, { "Content-Type": "text/html; charset=utf-8" });
+      const path = (req.url || "").split("?")[0];
+      const access = evaluateAccess(req, {
+        token: ACCESS_TOKEN,
+        path,
+        host: HOST,
+        allowedHosts: ALLOWED_HOSTS
+      });
+      if (!access.allowed) {
+        if (access.loginPage && req.method === "GET" && !path.startsWith("/api/")) {
+          res.writeHead(401, { "Content-Type": "text/html; charset=utf-8" });
           res.end(LOGIN_PAGE);
           return;
         }
-        return sendJson(res, 401, { error: "Unauthorized" });
+        return sendJson(res, access.status, { error: access.reason });
       }
-      if (req.url?.startsWith("/api/")) {
+      if (path.startsWith("/api/")) {
         const handled = await handleApi(req, res);
         if (handled !== false) return;
       }

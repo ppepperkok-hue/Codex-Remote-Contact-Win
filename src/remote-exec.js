@@ -9,6 +9,56 @@ const IDLE_TTL_MS = Number(process.env.CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_IDL
 const MEMORY_LIMIT = Number(process.env.CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_MEMORY_LIMIT || 160);
 const DEFAULT_PROFILE_PATH = fileURLToPath(new URL("../data/sakiko-qq-persona.md", import.meta.url));
 
+// Safe default: remote execution cannot touch files or run commands unless the
+// owner explicitly raises the sandbox (env var, settings.json, or /沙箱).
+export const DEFAULT_REMOTE_EXECUTION_SANDBOX = "read-only";
+export const REMOTE_EXECUTION_SANDBOXES = ["read-only", "workspace-write", "danger-full-access"];
+// Older releases persisted this value as the default sandbox, without any
+// record of whether the owner actually chose it.
+export const LEGACY_DEFAULT_REMOTE_EXECUTION_SANDBOX = "danger-full-access";
+
+function parseSandbox(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  return REMOTE_EXECUTION_SANDBOXES.includes(normalized) ? normalized : null;
+}
+
+export function normalizeSandbox(value, fallback = DEFAULT_REMOTE_EXECUTION_SANDBOX) {
+  return parseSandbox(value) ?? fallback;
+}
+
+export function isExplicitSandboxChoice(settings) {
+  return settings?.remoteExecution?.sandboxExplicit === true;
+}
+
+/*
+ * Precedence, most deliberate operator intent first:
+ *   1. CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX (explicit env override)
+ *   2. data/settings.json with remoteExecution.sandboxExplicit === true
+ *   3. legacy data/settings.json values, except the old dangerous default
+ *   4. DEFAULT_REMOTE_EXECUTION_SANDBOX
+ *
+ * Legacy settings (written before the marker existed) never recorded whether
+ * the owner picked a sandbox or the file just carries the old default. A
+ * persisted danger-full-access without the marker is therefore ambiguous; we
+ * treat it as the legacy default and demote it to read-only instead of
+ * silently keeping unrestricted execution after an upgrade. An owner who does
+ * want it re-sends `/沙箱 danger-full-access` on the current version, which
+ * writes the marker and survives restarts unless an env override pins a
+ * different value. A persisted read-only or workspace-write is kept: the old
+ * default was never either of those, so it can only come from a deliberate
+ * choice.
+ */
+export function resolveRemoteExecutionSandbox(settings, env = process.env) {
+  const fromEnv = parseSandbox(env?.CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX);
+  if (fromEnv) return fromEnv;
+  const persisted = parseSandbox(settings?.remoteExecution?.sandbox);
+  if (!persisted) return DEFAULT_REMOTE_EXECUTION_SANDBOX;
+  if (!isExplicitSandboxChoice(settings) && persisted === LEGACY_DEFAULT_REMOTE_EXECUTION_SANDBOX) {
+    return DEFAULT_REMOTE_EXECUTION_SANDBOX;
+  }
+  return persisted;
+}
+
 function compact(command) {
   return String(command || "").replace(/^\/+/, "").replace(/\s+/g, "").toLowerCase();
 }
@@ -45,14 +95,15 @@ function formatMemory(state) {
     .join("\n\n");
 }
 
-async function rememberTurn(state, user, reply) {
+async function rememberTurn(state, user, reply, actions) {
   const entries = state.remoteExecution.memory.entries || [];
   entries.push({ user: String(user).slice(0, 2000), reply: String(reply).slice(0, 4000), at: new Date().toISOString() });
   state.remoteExecution.memory.entries = entries.slice(-MEMORY_LIMIT);
-  await saveRemoteExecutionMemory(state.remoteExecution.memory);
+  await (actions?.saveRemoteExecutionMemory || saveRemoteExecutionMemory)(state.remoteExecution.memory);
 }
 
 async function buildWorkspaceInstructions(state, profile, memory) {
+  const effectiveSandbox = resolveRemoteExecutionSandbox(state);
   const skillContent =
     state.remoteExecution.skill && state.remoteExecution.skill !== "none"
       ? await loadSkillContent(state.remoteExecution.skill)
@@ -61,7 +112,7 @@ async function buildWorkspaceInstructions(state, profile, memory) {
   const lines = [
     `# ${state.branding.assistantName} Remote Execution Workspace`,
     profile || "",
-    "你正在通过 QQ 私聊与电脑的主人对话。你拥有完整工具权限（danger-full-access），可以直接操作本机：打开软件、执行命令、读写文件、查询状态等，就像在本地终端里一样。",
+    `你正在通过 QQ 私聊与电脑的主人对话。当前沙箱级别：${effectiveSandbox}。read-only 只能读取，workspace-write 只能改工作区，只有 danger-full-access 才能完整操作本机（打开软件、执行命令、读写文件、查询状态等）。`,
     `自称 ${state.branding.assistantName}，用第一人称「我」。`,
     "回复要适合 QQ 聊天：先说人话结论，再给必要细节；不要用报告式结构，不要堆砌 Markdown。",
     "🚨 QQ 聊天必须短：回复默认控制在 1～3 句、最多 60 字（用户明确要求详细时才例外）。不许分段、不许空行、不许破折号、不许列举。一次说一件事，说完就停。",
@@ -117,7 +168,7 @@ export async function executeRemoteExecutionCommand(command, state, actions) {
     return { ok: true, reply: "远程执行模式已关闭，desuwa。" };
   }
   if (/^(状态|status)$/.test(c)) {
-    return { ok: true, reply: `远程执行模式：开\n模型：${state.remoteExecution.model}\n智能等级：${state.remoteExecution.reasoningEffort}\nskill：${state.remoteExecution.skill}\n沙箱：${state.remoteExecution.sandbox || "read-only"}\n记忆条数：${(state.remoteExecution.memory.entries || []).length}` };
+    return { ok: true, reply: `远程执行模式：${state.remoteExecution.enabled ? "开" : "关"}\n模型：${state.remoteExecution.model}\n智能等级：${state.remoteExecution.reasoningEffort}\nskill：${state.remoteExecution.skill}\n沙箱：${resolveRemoteExecutionSandbox(state)}\n记忆条数：${(state.remoteExecution.memory.entries || []).length}` };
   }
   if (/^(帮助|help)$/.test(c)) {
     return { ok: true, reply: ["远程执行模式指令：", "/退出远程执行 /状态 /清理记忆", "/模型 模型名 /智能等级 low|medium|high", "/沙箱 read-only|workspace-write|danger-full-access", "/skill 列表 /skill none"].join("\n") };
@@ -155,9 +206,20 @@ export async function executeRemoteExecutionCommand(command, state, actions) {
   }
   const sandboxMatch = normalized.match(/^沙箱\s+(read-only|workspace-write|danger-full-access)$/i);
   if (sandboxMatch) {
-    state.remoteExecution.sandbox = sandboxMatch[1].toLowerCase();
+    const requested = sandboxMatch[1].toLowerCase();
+    state.remoteExecution.sandbox = requested;
+    // Record that this value is a current-version, owner-made choice so the
+    // legacy-value demotion in resolveRemoteExecutionSandbox never overrides it.
+    state.remoteExecution.sandboxExplicit = true;
     await actions.saveStateSettings();
-    return { ok: true, reply: `远程执行沙箱已切换：${state.remoteExecution.sandbox}。该级别决定 Codex 能否真正改文件和执行命令，desuwa。` };
+    const effective = resolveRemoteExecutionSandbox(state);
+    if (effective !== requested) {
+      return {
+        ok: true,
+        reply: `已记录沙箱 ${requested}，但环境变量把当前沙箱固定为 ${effective}。改掉 CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX 后才会生效，desuwa。`
+      };
+    }
+    return { ok: true, reply: `远程执行沙箱已切换：${effective}。该级别决定 Codex 能否真正改文件和执行命令，desuwa。` };
   }
   return { ok: true, mode: "reply", text: normalized };
 }
@@ -193,21 +255,24 @@ export async function buildRemoteExecutionReply(userText, state, actions) {
     }
   }
   const instructions = await buildWorkspaceInstructions(state, profile, memory);
-  await mkdir(codexWorkspaceDir, { recursive: true });
-  await mkdir(runtimeRepliesDir, { recursive: true });
-  await writeFile(join(codexWorkspaceDir, "AGENTS.md"), instructions, "utf8");
-  const outputPath = join(runtimeRepliesDir, `remote-${Date.now()}.txt`);
-  const result = await runCodexExec({
+  const workspace = actions?.workspaceDir || codexWorkspaceDir;
+  const repliesDir = actions?.repliesDir || runtimeRepliesDir;
+  await mkdir(workspace, { recursive: true });
+  await mkdir(repliesDir, { recursive: true });
+  await writeFile(join(workspace, "AGENTS.md"), instructions, "utf8");
+  const outputPath = join(repliesDir, `remote-${Date.now()}.txt`);
+  const run = actions?.runCodexExec || runCodexExec;
+  const result = await run({
     model: state.remoteExecution.model,
     reasoningEffort: state.remoteExecution.reasoningEffort,
-    workspace: codexWorkspaceDir,
+    workspace,
     prompt: userText,
     outputPath,
     timeout: 300000,
-    sandbox: state.remoteExecution.sandbox || process.env.CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX || "read-only",
+    sandbox: resolveRemoteExecutionSandbox(state),
     env: { CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_MODE: "1" }
   });
   const reply = result.output || result.stdout || "执行完了，但没有拿到输出，desuno。";
-  await rememberTurn(state, userText, reply.slice(0, 4000));
+  await rememberTurn(state, userText, reply.slice(0, 4000), actions);
   return reply.slice(0, 1600);
 }

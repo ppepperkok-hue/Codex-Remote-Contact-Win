@@ -21,8 +21,9 @@ QQ/OneBot（NapCat）通道 + Codex CLI 回复 + Web 服务控制台 + 远程执
 
 ## 功能
 
-- **管理员 QQ 私聊 = 完整 Codex 通道**：默认 `danger-full-access` 沙箱，带独立记忆，
-  能直接操作本机（打开软件、执行命令、读写文件、截图、防休眠等）。
+- **管理员 QQ 私聊 = 完整 Codex 通道**：默认 `read-only` 沙箱，带独立记忆，
+  可打开软件、截图、防休眠；用 `/沙箱 danger-full-access` 或设置
+  `CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX` 显式提权后才能执行命令、读写文件。
 - **群聊 / 非管理员 = 只读短回复**：走 `codex exec -s read-only`，不能执行命令。
 - **Web 服务控制台**：`http://127.0.0.1:3789`，总览 AstrBot / NapCat / Hub 状态，
   一键启停、深色主题、链路健康检查（OneBot WS / QQ 登录 / Codex CLI / 远程执行）。
@@ -114,7 +115,7 @@ POST /api/services/stop    { "service": "astrbot" | "napcat-<qq>" }
 
 Hub 默认只监听 `127.0.0.1`。要在同一局域网内的手机上打开控制台和各个 WebUI：
 
-1. 让 Hub 监听所有网卡并设置访问密码（建议同时设置）：
+1. 让 Hub 监听所有网卡并设置访问密码（不设密码时非本机请求一律 401）：
 
    把值写进 `data/hub.env`（参考 `data/hub.env.example`），访问密码放在
    `data/access-token.txt`，然后 `npm start` 或双击 `start-dashboard.bat`
@@ -240,9 +241,10 @@ NapCat + AstrBot + QQ 通道」的完整无人值守链路；后端保留 `/api/
 | `CODEX_CLI_PATH` | `codex`（PATH） | Codex CLI 可执行文件路径 |
 | `CODEX_REMOTE_CONTACT_PORT` | `3789` | Hub HTTP 端口 |
 | `CODEX_REMOTE_CONTACT_HOST` | `127.0.0.1` | 监听地址（内网访问请自行配鉴权） |
-| `CODEX_REMOTE_CONTACT_ACCESS_TOKEN` | 空 | 非本机访问控制台所需的访问密码（设置后生效） |
+| `CODEX_REMOTE_CONTACT_ALLOWED_HOSTS` | 空 | 额外信任的 Host 主机名（逗号分隔；无密码模式默认只信任绑定地址与 localhost/127.0.0.1） |
+| `CODEX_REMOTE_CONTACT_ACCESS_TOKEN` | 空 | 控制台访问密码；为空时只接受本机直连，事件注入接口一律拒绝 |
 | `CODEX_REMOTE_CONTACT_ASSISTANT_PROFILE_PATH` | 空 | 写入工作区 AGENTS.md 的风格文件 |
-| `CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX` | `read-only` | 远程执行默认沙箱 |
+| `CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_SANDBOX` | `read-only` | 远程执行沙箱默认值；设置后优先级高于 `data/settings.json` |
 | `CODEX_REMOTE_CONTACT_REMOTE_EXECUTION_IDLE_TTL_MS` | `900000` | 远程执行空闲超时 |
 | `AUTO_START_SERVICES` | 空 | 开机自动启动的服务 id（逗号分隔，如 `napcat-10001,astrbot`） |
 | `DASHSCOPE_API_KEY` | 空 | 视觉描述（截图分析）用的 DashScope/Qwen key |
@@ -253,9 +255,33 @@ NapCat + AstrBot + QQ 通道」的完整无人值守链路；后端保留 `/api/
 ## 安全说明
 
 - Hub 默认只监听 `127.0.0.1`，不暴露到局域网。
+- 未设置 `CODEX_REMOTE_CONTACT_ACCESS_TOKEN` 时，Hub 只接受本机直连请求；经隧道/反向代理
+  转发的请求即使来自 `127.0.0.1` 也会被拒绝。要远程访问，请设置访问密码。
+- 无密码模式会校验 Host 头：只接受绑定地址、`localhost` / `127.0.0.1` 回环名和
+  `CODEX_REMOTE_CONTACT_ALLOWED_HOSTS` 中的主机名，其他 Host 一律 403。这样恶意 DNS
+  把域名解析到 127.0.0.1 后，浏览器同源比较也无法通过。`X-Forwarded-Host` 不作为同源依据；
+  公网隧道域名请配合访问密码使用（密码校验通过后不再限制 Host 名）。
+- `POST /api/onebot/event`、`POST /api/qq/event` 能把任意 `user_id` 当作发送者（含管理员），
+  因此始终要求访问密码，并且只认 `x-access-token` 请求头（不接受 cookie / URL 查询参数）：
+  未配置密码时这两个接口返回 403，密码错误返回 401。合法的 HTTP 上报方需在配置里加上
+  `x-access-token`。默认链路是 NapCat 正向 WebSocket，不受影响。
 - 管理指令（改白名单、ban、清记忆、远程执行、切换沙箱）只认 `ownerUserIds`。
 - 群聊/非管理员回复一律走 `read-only` 沙箱，不会自动执行命令。
-- 管理员私聊默认 `danger-full-access`，拥有本机完整权限，请妥善保管机器人 QQ。
+- 远程执行默认 `read-only`，与本文档一致；管理员需要用 `/沙箱 danger-full-access`
+  （或环境变量）显式提权后才拥有本机完整权限，请妥善保管机器人 QQ。
+- 旧版本会把当时的默认值 `danger-full-access` 写进 `data/settings.json`，而且没有记录
+  它是不是主人主动选的。升级后读取时，无 `sandboxExplicit: true` 标记的
+  `danger-full-access` 按旧默认处理并降为 `read-only`；无标记的 `read-only` /
+  `workspace-write` 会保留，因为旧版本从不会把这两个值当默认写入，只可能是主动选择。
+  当前版本 `/沙箱` 会写入 `sandboxExplicit: true`，重启后仍保留；手工编辑
+  `data/settings.json` 选择 `danger-full-access` 时也要同时写入
+  `sandboxExplicit: true`，否则会被当作旧默认降级。优先级为：
+  环境变量 > 带标记的当前选择 > 无标记的保留值 > `read-only`。降级只发生在读取阶段，
+  不会自动改写 `data/settings.json`。保存设置时写入的始终是记录下来的选择（没有选择时
+  写安全默认值），不会写入环境变量解析出的生效值：临时固定环境变量期间保存一条无关设置
+  （例如 `/模型`、`/加群`），不会把主人的选择永久改掉，环境变量移除并重启后原选择照旧生效。
+  环境变量固定了沙箱时，`/沙箱` 会说明改动要到环境变量改掉后才生效；管理员私聊 `/状态`
+  报告的是解析后的生效沙箱，不是文件里记录的选择。
 - `data/settings.json`、`data/services.json`、`data/*-memory.json` 均被
   `.gitignore` 排除；API key 等敏感信息请通过环境变量提供，不要写进代码。
 

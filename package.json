@@ -5,7 +5,8 @@
   "type": "module",
   "description": "Codex Remote Contact for Windows: QQ/NapCat channel + Codex CLI replies + web console + remote execution",
   "scripts": {
-    "start": "node src/load-env.js"
+    "start": "node src/load-env.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"

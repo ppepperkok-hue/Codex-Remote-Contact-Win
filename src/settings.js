@@ -30,7 +30,9 @@ export const defaultSettings = {
   remoteExecution: {
     model: "auto",
     reasoningEffort: "medium",
-    skill: "none"
+    skill: "none",
+    sandbox: "read-only",
+    sandboxExplicit: false
   },
   lastOpenedApp: null,
   branding: {

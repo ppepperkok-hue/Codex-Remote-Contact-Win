@@ -17,7 +17,9 @@
   "remoteExecution": {
     "model": "auto",
     "reasoningEffort": "medium",
-    "skill": "none"
+    "skill": "none",
+    "sandbox": "read-only",
+    "sandboxExplicit": false
   },
   "branding": {
     "assistantName": "assistant",

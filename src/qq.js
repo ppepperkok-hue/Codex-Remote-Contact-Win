@@ -188,7 +188,16 @@ export async function buildQqCommandAction(event, state, actions) {
     return null;
   }
 
-  if (/^(状态|status)$/i.test(c)) return { reply: actions.status() };
+  if (/^(状态|status)$/i.test(c)) {
+    // Owner private /状态 goes through remote-exec: it is the only place that
+    // reports the effective sandbox (env pin applied over the persisted
+    // choice), so intercepting here would hide the value that actually runs.
+    if (event.type === "private_message" && actions.remoteExec?.execute) {
+      const remoteStatus = await actions.remoteExec.execute(normalized, state, actions);
+      if (remoteStatus?.reply) return { reply: remoteStatus.reply };
+    }
+    return { reply: actions.status() };
+  }
   if (/^(维护|maintenance)$/i.test(c)) return { reply: actions.maintenance() };
   if (/^(开启qq|打开qq)$/i.test(c)) {
     state.channels.qq = true;
@@ -415,7 +424,7 @@ export async function handleQqEvent(event, state, actions) {
     send: null
   };
   rememberGroupMessage(event, state);
-  await saveQqMemory(state.qq.memory);
+  await (actions?.saveQqMemory || saveQqMemory)(state.qq.memory);
 
   const decision = shouldRespond(event, state);
   record.decision = decision;
