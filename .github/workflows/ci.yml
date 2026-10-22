@@ -1,0 +1,106 @@
+# Minimal CI for Codex-Remote-Contact-Win.
+#
+# The project's own checks are the `node --test` suite (41 cases) in test/ and
+# `node --check` over every tracked .js/.mjs file. package.json declares no
+# dependencies, the tree has no lockfile, and nothing is installed here, so
+# no dependency cache is configured.
+#
+# This job never starts the hub, the Codex CLI, NapCat or a PowerShell service:
+# only the test files are executed, and they bind throwaway 127.0.0.1 ports.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  node-tests:
+    name: node --test + syntax (windows-latest, node 22)
+    runs-on: windows-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # Read-only job: never persist the token in .git/config.
+          persist-credentials: false
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          # README targets Node 22 on Windows; engines allows >=20.
+          node-version: "22"
+          # No cache input on purpose: there is no lockfile to key it on.
+
+      - name: Run the node --test suite and require the known case count
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $output = node --test 2>&1 | Out-String
+          Write-Host $output
+          $exit = $LASTEXITCODE
+          if ($exit -ne 0) {
+            throw "node --test exited with $exit"
+          }
+          $tests = [regex]::Match($output, '(?m)^# tests (\d+)\s*$')
+          if (-not $tests.Success) {
+            throw 'node --test did not print a "# tests" summary line'
+          }
+          $count = [int]$tests.Groups[1].Value
+          if ($count -lt 41) {
+            throw "only $count test cases ran; the suite has 41, so a lower count means discovery broke"
+          }
+          # `# tests` counts skipped cases too, so a suite where all 41 cases are
+          # skipped still reports "# tests 41". The fail and skip counters are
+          # what prove the cases actually executed, and `# pass` proves how many.
+          $fails = [regex]::Match($output, '(?m)^# fail (\d+)\s*$')
+          if (-not $fails.Success -or [int]$fails.Groups[1].Value -ne 0) {
+            throw 'node --test reported failing cases'
+          }
+          $skips = [regex]::Match($output, '(?m)^# skipped (\d+)\s*$')
+          if (-not $skips.Success) {
+            throw 'node --test did not print a "# skipped" summary line'
+          }
+          $skipped = [int]$skips.Groups[1].Value
+          if ($skipped -ne 0) {
+            throw "node --test skipped $skipped test cases; this suite must execute all 41"
+          }
+          $pass = [regex]::Match($output, '(?m)^# pass (\d+)\s*$')
+          if (-not $pass.Success) {
+            throw 'node --test did not print a "# pass" summary line'
+          }
+          $passed = [int]$pass.Groups[1].Value
+          if ($passed -lt 41) {
+            throw "only $passed test cases passed; the suite has 41, so skipped or undiscovered cases cannot satisfy this guard"
+          }
+          Write-Host "ok: $passed test cases passed (0 failed, 0 skipped)"
+
+      - name: Syntax-check every tracked .js and .mjs file
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $files = @(git ls-files '*.js' '*.mjs')
+          if ($files.Count -eq 0) {
+            throw 'git ls-files returned no .js/.mjs files; refusing a vacuous check'
+          }
+          $bad = @()
+          foreach ($file in $files) {
+            node --check $file
+            if ($LASTEXITCODE -ne 0) {
+              $bad += $file
+            }
+          }
+          if ($bad.Count -gt 0) {
+            throw "node --check failed for: $($bad -join ', ')"
+          }
+          Write-Host "ok: node --check passed for $($files.Count) files"
